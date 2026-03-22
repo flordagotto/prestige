@@ -177,20 +177,34 @@ Ejemplos de registros:
 
 #### `RedemptionRequest` (solicitud de canje de un producto)
 ```
-id                  uuid
-employee_id         uuid     ← FK a Employee
-product_id          string   ← FK a Product de Medusa
-goldies_cost        integer  ← snapshot del precio en goldies al momento del canje
-payment_intent_id   string   ← Stripe payment intent (el 1€ simbólico)
-payment_status      enum: pending | paid | failed
-status              enum: pending | processing | completed | cancelled
-created_at          timestamp
+id                    uuid
+employee_id           uuid     ← FK a Employee
+product_id            string   ← FK a Product de Medusa
+goldies_cost          integer  ← snapshot del precio en goldies al momento del canje
+payment_intent_id     string   ← Stripe payment intent (el 1€ simbólico)
+payment_status        enum: pending | paid | failed
+status                enum: pending | processing | completed | cancelled
+
+← Dirección de entrega (solicitada al momento del canje, no se guarda en el perfil)
+delivery_full_name    string
+delivery_street       string
+delivery_city         string
+delivery_state        string
+delivery_postal_code  string
+delivery_country      string
+delivery_phone        string   ← opcional, para coordinar la entrega
+delivery_notes        string   ← opcional, ej: "piso 3, timbre B"
+
+created_at            timestamp
 
 Flujo de estados:
   pending    → se creó la solicitud, esperando pago de 1€
   processing → pago confirmado, admin notificado, esperando gestión manual
   completed  → admin marcó como completado
   cancelled  → se canceló (pago fallido u otro motivo)
+
+NOTA: La dirección se pide en el mismo formulario que los datos de la tarjeta,
+antes de confirmar el canje. No se almacena en Employee — es dato del canje, no del usuario.
 ```
 
 ### Entidades de Medusa que extendemos
