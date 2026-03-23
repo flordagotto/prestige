@@ -1,4 +1,4 @@
-# 🪙 Goldies — Documentación Backend
+# 🪙 Prestige Rewards — Documentación Backend
 > Sistema de gestión de puntos para empleados · Backend con Medusa 2
 > 
 > **Última actualización:** Marzo 2026  
@@ -26,13 +26,13 @@
 
 ## 1. Visión general del sistema
 
-**Goldies** es una plataforma B2B2C que permite a empresas pagar parte del sueldo de sus empleados en puntos ("goldies"). Los empleados pueden acumular esos puntos y canjearlos por productos en un catálogo.
+**Prestige Rewards** es una plataforma B2B2C que permite a empresas pagar parte del sueldo de sus empleados en puntos ("goldies"). Los empleados pueden acumular esos puntos y canjearlos por productos en un catálogo.
 
 ### Actores del sistema
 
 | Actor | Descripción |
 |-------|-------------|
-| **Super Admin** | Administrador de la plataforma Goldies. Gestiona empresas, productos y asignación masiva de puntos. |
+| **Super Admin** | Administrador de la plataforma Prestige Rewards. Gestiona empresas, productos y asignación masiva de puntos. |
 | **Empleador** | Empresa cliente. Gestiona los puntos que tiene asignados y los distribuye entre sus empleados. |
 | **Empleado** | Usuario final. Recibe puntos, ve su saldo, explora el catálogo y solicita canjes. |
 
@@ -66,7 +66,7 @@
 │                                                         │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │  Medusa     │  │   Módulo     │  │   Módulo      │  │
-│  │  Core       │  │   Goldies    │  │   Empleadores │  │
+│  │  Core       │  │   Goldies    │  │   Company     │
 │  │  (auth,     │  │  (puntos,    │  │   (empresas,  │  │
 │  │  productos, │  │   canjes,    │  │    empleados) │  │
 │  │  admin UI)  │  │   saldos)    │  │               │  │
@@ -110,7 +110,7 @@ Medusa 2 es un framework de comercio headless. En nuestro caso lo usamos no para
 
 **Módulos (`modules/`):** Bloques de funcionalidad independientes. Vamos a crear dos módulos custom:
 - `goldie-module`: gestión de puntos, saldos, transacciones
-- `employer-module`: gestión de empresas y sus empleados
+- `company-module`: gestión de empresas y sus empleados
 
 **Workflows:** Secuencias de pasos con manejo de errores y rollback. Los usamos para operaciones críticas como "descontar puntos + registrar canje + enviar email".
 
@@ -134,6 +134,7 @@ status              enum: active | inactive
 goldie_balance      integer  ← puntos disponibles para asignar a empleados
 created_at          timestamp
 updated_at          timestamp
+categories_by_company_id         uuid     ← FK a CategoryXCompany (nombre a definir)
 ```
 
 #### `Employer` (Usuario empleador — puede haber varios por empresa)
@@ -210,17 +211,17 @@ antes de confirmar el canje. No se almacena en Employee — es dato del canje, n
 ### Entidades de Medusa que extendemos
 
 - **`User`** → le agregamos: `goldie_role` (admin | employer | employee) para saber a qué tabla custom apunta
-- **`Product`** → le agregamos: `goldie_price` (cuántos goldies cuesta), `company_category` (categoría de empresa — ver punto de exclusión), `is_active` (para activar/desactivar del catálogo)
+- **`Product`** → le agregamos: `goldie_price` (cuántos goldies cuesta), `category` (categoría de empresa — ver punto de exclusión), `is_available` (para activar/desactivar del catálogo)
 
 ### Lógica de exclusión de productos por categoría de empresa
 
-Cada producto tiene un campo `company_category` (ej: `"electronics"`, `"photography"`, `"food"`, etc.). Cada `Company` también tiene ese campo. Cuando un empleado pide el catálogo (`GET /employee/products`), el backend filtra y **excluye los productos cuya `company_category` coincida con la de la empresa del empleado**.
+Cada producto tiene un campo `category` (ej: `"electronics"`, `"photography"`, `"food"`, etc.). Cada `Company` también tiene ese campo. Cuando un empleado pide el catálogo (`GET /employee/products`), el backend filtra y **excluye los productos cuya `category` coincida con la de la empresa del empleado**.
 
 Ejemplo: empleado de Canon (categoría `photography`) → no ve productos de categoría `photography` (cámaras Samsung, etc.), sí ve productos de otras categorías.
 
 ```
 Company.category = "photography"
-  → se excluyen productos donde product.company_category = "photography"
+  → se excluyen productos donde product.category = "photography"
   → se muestran todos los demás productos activos
 ```
 
@@ -278,7 +279,6 @@ CompanyModuleService:
   updateCompany(id, data)
   toggleCompanyStatus(id)
   createEmployer(companyId, userData)   ← admin crea la cuenta del employer
-  createEmployee(companyId, userData)   ← admin o employer crean empleados
 
   // Admin y employer
   getCompany(id)
@@ -286,6 +286,7 @@ CompanyModuleService:
   getEmployees(companyId)
   toggleEmployeeStatus(employeeId)
   removeEmployee(companyId, employeeId)
+  createEmployee(companyId, userData)   ← admin o employer crean empleados
 ```
 
 ---
@@ -388,7 +389,7 @@ Employer hace POST /employer/employees/:id/assign-goldies { amount: 100 }
 ```
 Empleado navega GET /employee/products
   → Backend obtiene company.category del empleado
-  → Filtra productos: excluye donde product.company_category = company.category
+  → Filtra productos: excluye donde product.category = company.category
   → Devuelve solo productos activos y permitidos
 
 Empleado elige producto → POST /employee/redeem { product_id: "prod_123" }
@@ -555,7 +556,7 @@ ADMIN_EMAIL=admin@goldies.com       ← email del admin que recibe los canjes
 
 # Frontend (para CORS)
 STORE_CORS=http://localhost:3000
-ADMIN_CORS=http://localhost:9000
+ADMIN_CORS=http://localhost:7001
 ```
 
 > ⚠️ **Nunca subir el .env a git.** Asegurarse de que `.env` esté en `.gitignore`.
@@ -607,7 +608,8 @@ goldies-backend/
 │   │
 │   ├── subscribers/                    ← listeners de eventos internos
 │   │   ├── on-redemption-confirmed.ts  ← envía emails post-pago
-│   │   └── on-goldies-assigned.ts      ← notifica al empleado que recibió puntos
+│   │   └── on-goldies-assigned-to-employee.ts      ← notifica al empleado que recibió puntos
+│   │   └── on-goldies-assigned-by-employer.ts      ← notifica a los empleadores que asignaron puntos desde su empresa a uno o más empleados
 │   │
 │   └── admin/                          ← extensiones del panel Medusa Admin
 │       └── widgets/
@@ -632,10 +634,10 @@ El employer es un usuario de confianza que administra dinero (goldies) de una em
 Simplicidad. Los puntos se asignan en números enteros y se consumen enteros. No hay fracciones de goldie.
 
 ### ¿Por qué el canje no descuenta puntos inmediatamente al iniciar?
-Para evitar situaciones donde el pago de Stripe falla pero ya descontamos los puntos. El flujo correcto es: pago confirmado por webhook → descuento de puntos → notificación. Si el pago falla, el `RedemptionRequest` queda en `failed` y los goldies nunca se tocaron.
+Para evitar situaciones donde el pago de Stripe falla pero ya descontamos los puntos. El flujo correcto es: pago confirmado por webhook → descuento de puntos → notificación. Si el pago falla, el `RedemptionRequest` queda con payment_status = `failed`, el status = `pending` y los goldies nunca se tocaron.
 
 ### ¿Por qué usamos Medusa para el catálogo si no es una tienda tradicional?
-Medusa ya tiene CRUD de productos con imágenes, variantes, categorías y un panel de admin. Reutilizarlo nos ahorra semanas de trabajo. Solo le agregamos `goldie_price` y `company_category`.
+Medusa ya tiene CRUD de productos con imágenes, variantes, categorías y un panel de admin. Reutilizarlo nos ahorra semanas de trabajo. Solo le agregamos `goldie_price` y `category`.
 
 ### ¿Por qué no usamos el sistema de órdenes de Medusa?
 El flujo de canje es demasiado custom (pago simbólico + notificación al admin + gestión manual). Sería más trabajo adaptar las órdenes de Medusa que construir nuestro propio `RedemptionRequest`.
