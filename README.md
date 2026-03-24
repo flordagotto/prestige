@@ -33,7 +33,7 @@
 | Actor | Descripción |
 |-------|-------------|
 | **Super Admin** | Administrador de la plataforma Prestige Rewards. Gestiona empresas, productos y asignación masiva de puntos. |
-| **Empleador** | Empresa cliente. Gestiona los puntos que tiene asignados y los distribuye entre sus empleados. |
+| **Agente** | Empresa cliente. Un agente empleador de la empresa gestiona los puntos que tiene asignados y los distribuye entre sus empleados. |
 | **Empleado** | Usuario final. Recibe puntos, ve su saldo, explora el catálogo y solicita canjes. |
 
 ### Qué hace el sistema (y qué NO hace)
@@ -58,7 +58,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    FRONTEND (Next.js)                   │
-│  /admin   /employer/:id   /employee/:id                 │
+│  /admin   /agent/:id   /employee/:id                 │
 └──────────────────┬──────────────────────────────────────┘
                    │ HTTP / REST API
 ┌──────────────────▼──────────────────────────────────────┐
@@ -124,6 +124,32 @@ Medusa 2 es un framework de comercio headless. En nuestro caso lo usamos no para
 
 ### Entidades custom (las que vamos a crear)
 
+
+#### `Category` (Categoría de industria)
+```
+id          uuid
+name        string    ← ej: "Photography", "Electronics", "Food"
+slug        string    ← ej: "photography", "electronics", "food" (único, indexado)
+created_at  timestamp
+ 
+NOTA: Catálogo maestro de categorías. Solo el admin crea y elimina categorías.
+Tanto Company (via CategoryXCompany) como Product la referencian.
+```
+ 
+#### `CategoryXCompany` (Categorías que pertenece una empresa — relación N:M)
+```
+id          uuid
+company_id  uuid  ← FK a Company
+category_id uuid  ← FK a Category
+created_at  timestamp
+ 
+EJEMPLO: Samsung tiene categorías Electronics, Photography, Mobile
+→ 3 filas en esta tabla con company_id = Samsung.id
+ 
+LÓGICA DE EXCLUSIÓN: cuando un employee de Samsung busca productos,
+se excluyen todos los productos cuya category_id esté en esta lista.
+```
+
 #### `Company` (Empresa)
 ```
 id                  uuid
@@ -134,24 +160,25 @@ status              enum: active | inactive
 goldie_balance      integer  ← puntos disponibles para asignar a empleados
 created_at          timestamp
 updated_at          timestamp
-categories_by_company_id         uuid     ← FK a CategoryXCompany (nombre a definir)
-```
 
-#### `Employer` (Usuario empleador — puede haber varios por empresa)
+→ Las categorías de la empresa se consultan via CategoryXCompany
 ```
-id                  uuid
-user_id             string   ← FK a User de Medusa (creado por el admin)
-company_id          uuid     ← FK a Company
-status              enum: active | inactive
-created_at          timestamp
-
-NOTA: No tiene goldie_balance. El empleador gestiona puntos pero no los recibe.
+ 
+#### `Agent` (Usuario agente — puede haber varios por empresa)
+```
+id          uuid
+user_id     string  ← FK a User de Medusa (creado por el admin)
+company_id  uuid    ← FK a Company
+status      enum: active | inactive
+created_at  timestamp
+ 
+NOTA: No tiene goldie_balance. El agent gestiona puntos pero no los recibe.
 ```
 
 #### `Employee` (Usuario empleado)
 ```
 id                  uuid
-user_id             string   ← FK a User de Medusa (creado por el admin o el employer)
+user_id             string   ← FK a User de Medusa (creado por el admin o el agent)
 company_id          uuid     ← FK a Company
 goldie_balance      integer  ← puntos acumulados del empleado
 status              enum: active | inactive
@@ -166,13 +193,13 @@ company_id          uuid     ← siempre presente (todo movimiento pertenece a u
 employee_id         uuid     ← nullable: presente en employee_assignment y redemption
 product_id          string   ← nullable: presente solo en redemption
 amount              integer  ← positivo = crédito, negativo = débito
-performed_by        string   ← user_id de quien hizo la operación (admin o employer)
+performed_by        string   ← user_id de quien hizo la operación (admin o agent)
 note                string   ← opcional, para adjustments manuales
 created_at          timestamp
 
 Ejemplos de registros:
   type=company_assignment  → admin asignó 1000 goldies a la empresa
-  type=employee_assignment → employer asignó 100 goldies a un empleado
+  type=employee_assignment → agent asignó 100 goldies a un empleado
   type=redemption          → empleado canjeó un producto (amount negativo)
 ```
 
@@ -187,14 +214,14 @@ payment_status        enum: pending | paid | failed
 status                enum: pending | processing | completed | cancelled
 
 ← Dirección de entrega (solicitada al momento del canje, no se guarda en el perfil)
-delivery_full_name    string
-delivery_street       string
-delivery_city         string
-delivery_state        string
-delivery_postal_code  string
-delivery_country      string
-delivery_phone        string   ← opcional, para coordinar la entrega
-delivery_notes        string   ← opcional, ej: "piso 3, timbre B"
+delivery_full_name    string           requerido
+delivery_street       string           requerido
+delivery_city         string           requerido
+delivery_state        string | null    opcional (no todos los países usan estado/provincia)
+delivery_postal_code  string           requerido
+delivery_country      string           requerido (código ISO, ej: "ES", "AR")
+delivery_phone        string | null    opcional
+delivery_notes        string | null    opcional (ej: "piso 3, timbre B")
 
 created_at            timestamp
 
@@ -209,20 +236,22 @@ antes de confirmar el canje. No se almacena en Employee — es dato del canje, n
 ```
 
 ### Entidades de Medusa que extendemos
-
-- **`User`** → le agregamos: `goldie_role` (admin | employer | employee) para saber a qué tabla custom apunta
-- **`Product`** → le agregamos: `goldie_price` (cuántos goldies cuesta), `category` (categoría de empresa — ver punto de exclusión), `is_available` (para activar/desactivar del catálogo)
-
-### Lógica de exclusión de productos por categoría de empresa
-
-Cada producto tiene un campo `category` (ej: `"electronics"`, `"photography"`, `"food"`, etc.). Cada `Company` también tiene ese campo. Cuando un empleado pide el catálogo (`GET /employee/products`), el backend filtra y **excluye los productos cuya `category` coincida con la de la empresa del empleado**.
-
-Ejemplo: empleado de Canon (categoría `photography`) → no ve productos de categoría `photography` (cámaras Samsung, etc.), sí ve productos de otras categorías.
-
+ 
+- **`User`** → agregamos: `goldie_role` (admin | agent | employee)
+- **`Product`** → agregamos: `goldie_price` (costo en goldies), `category_id` (FK a Category), `is_available`
+ 
+### Lógica de exclusión de productos por categoría
+ 
 ```
-Company.category = "photography"
-  → se excluyen productos donde product.category = "photography"
-  → se muestran todos los demás productos activos
+1. Obtener company_id del employee autenticado
+2. Obtener category_ids de CategoryXCompany donde company_id = ese valor
+3. Retornar productos donde:
+   - is_available = true
+   - category_id NOT IN (lista de categorías de la empresa)
+ 
+Ejemplo — Samsung tiene: Electronics, Photography, Mobile
+→ Un employee de Samsung ve: Food, Travel, Fashion...
+→ No ve: cámaras, TVs, celulares (aunque sean de otras marcas)
 ```
 
 ---
@@ -270,7 +299,7 @@ GoldieModuleService:
 ```
 
 ### `company-module`
-Responsabilidades: gestión de empresas, empleadores y empleados. El CRUD de empresas lo hace el admin; el employer solo gestiona su propia gente.
+Responsabilidades: gestión de empresas, empleadores (agentes) y empleados. El CRUD de empresas lo hace el admin; el agent solo gestiona su propia gente.
 
 ```typescript
 CompanyModuleService:
@@ -278,15 +307,19 @@ CompanyModuleService:
   createCompany(data)
   updateCompany(id, data)
   toggleCompanyStatus(id)
-  createEmployer(companyId, userData)   ← admin crea la cuenta del employer
+  createAgent(companyId, userData)   ← admin crea la cuenta del agent
+  setCompanyCategories(companyId, categoryIds)
+  createCategory(data)
+  getCategories()
 
-  // Admin y employer
+  // Admin y agent
   getCompany(id)
-  getEmployers(companyId)
+  getAgents(companyId)
   getEmployees(companyId)
+  getEmployee(employeeId)
   toggleEmployeeStatus(employeeId)
   removeEmployee(companyId, employeeId)
-  createEmployee(companyId, userData)   ← admin o employer crean empleados
+  createEmployee(companyId, userData)   ← admin o agent crean empleados
 ```
 
 ---
@@ -303,9 +336,10 @@ GET    /admin/companies/:id                    ← detalle de una empresa
 PUT    /admin/companies/:id                    ← editar empresa
 POST   /admin/companies/:id/toggle             ← activar/desactivar empresa
 POST   /admin/companies/:id/assign-goldies     ← asignar goldies en bulk a empresa
+PUT    /admin/companies/:id/categories         ← asignar categorías a la empresa
 
 # Usuarios
-POST   /admin/companies/:id/employers          ← crear cuenta de employer para esa empresa
+POST   /admin/companies/:id/agents             ← crear cuenta de agent para esa empresa
 POST   /admin/companies/:id/employees          ← crear cuenta de employee para esa empresa
 
 # Visibilidad global
@@ -314,22 +348,25 @@ GET    /admin/redemptions                      ← todas las solicitudes de canj
 PUT    /admin/redemptions/:id/status           ← marcar canje como completed/cancelled
 ```
 
-### Rutas de Employer (protegidas, solo employers de esa empresa)
+### Rutas de Agent (protegidas, solo empleados de esa empresa)
 
 ```
-GET    /employer/company                       ← info y saldo de su empresa
-GET    /employer/employees                     ← listar empleados de su empresa
-POST   /employer/employees                     ← agregar empleado a su empresa
-DELETE /employer/employees/:id                 ← desasociar empleado
-POST   /employer/employees/:id/toggle          ← activar/desactivar empleado
-POST   /employer/employees/:id/assign-goldies  ← asignar goldies a un empleado
-GET    /employer/transactions                  ← historial de movimientos de la empresa
+GET    /agent/company                       ← info y saldo de su empresa
+GET    /agent/employees                     ← listar agentes de su empresa
+GET    /agent/employees/:id                 ← detalle de un employee individual
+POST   /agent/employees                     ← agregar agente a su empresa
+DELETE /agent/employees/:id                 ← desasociar agente
+POST   /agent/employees/:id/toggle          ← activar/desactivar empleado
+POST   /agent/employees/:id/assign-goldies  ← asignar goldies a un empleado
+GET    /agent/transactions                  ← historial de movimientos de la empresa
 ```
 
 ### Rutas de Employee (protegidas, solo el empleado autenticado)
 
 ```
-GET    /employee/me                            ← mi perfil y saldo de goldies
+GET    /employee/me
+PUT    /employee/me                           ← actualizar perfil
+PUT    /employee/me/password                  ← cambiar contraseña
 GET    /employee/products                      ← catálogo filtrado (sin productos de su categoría)
 GET    /employee/products/:id                  ← detalle de producto
 POST   /employee/redeem                        ← iniciar solicitud de canje { product_id }
@@ -347,23 +384,28 @@ POST   /webhooks/stripe                        ← confirmación de pago del 1�
 
 ## 7. Flujos principales
 
-### Flujo A: Alta de empresa y sus usuarios (solo Admin)
+### Flujo A: Alta de empresa y sus usuarios
 
 ```
 Admin en panel → POST /admin/companies { name, tax_id, contact_email, category }
   → Se crea Company (status: inactive por defecto)
   → Admin activa la empresa: POST /admin/companies/:id/toggle
 
-Admin crea los empleadores de esa empresa:
-  POST /admin/companies/:id/employers { name, email, password }
-  → Se crea User en Medusa con goldie_role = "employer"
-  → Se crea Employer { user_id, company_id }
-  → El employer recibe email con sus credenciales
+Admin crea los agentes de esa empresa:
+  POST /admin/companies/:id/agents { name, email, password }
+  → Se crea User en Medusa con goldie_role = "agent"
+  → Se crea Agent { user_id, company_id }
+  → El agent recibe email con sus credenciales
 
-Luego admin (o el employer ya logueado) crea empleados:
+Luego admin (o el agent ya logueado) crea empleados:
   POST /admin/companies/:id/employees { name, email, password }
   → Se crea User en Medusa con goldie_role = "employee"
   → Se crea Employee { user_id, company_id, goldie_balance: 0 }
+
+Solo admin
+PUT /admin/companies/:id/categories { category_ids: ["uuid1", "uuid2"] }
+  → Se crean filas en CategoryXCompany
+
 ```
 
 ### Flujo B: Asignación de goldies (Admin → Empresa → Empleado)
@@ -373,9 +415,9 @@ Admin hace POST /admin/companies/:id/assign-goldies { amount: 1000, note: "Marzo
   → GoldieModule.assignToCompany()
   → Company.goldie_balance += 1000
   → Se registra GoldieTransaction (type: company_assignment, amount: 1000)
-  → Email de notificación a todos los employers de esa empresa
+  → Email de notificación a todos los agents de esa empresa
 
-Employer hace POST /employer/employees/:id/assign-goldies { amount: 100 }
+Agent hace POST /agent/employees/:id/assign-goldies { amount: 100 }
   → Validar que Company.goldie_balance >= 100
   → GoldieModule.assignToEmployee()
   → Company.goldie_balance -= 100
@@ -418,6 +460,17 @@ Admin gestiona manualmente y marca:
   → Enviar email al empleado: "Tu canje fue procesado"
 ```
 
+### Flujo D: Perfil y contraseña (Employee)
+ 
+```
+PUT /employee/me { first_name, last_name }
+  → Actualiza campos en User de Medusa
+ 
+PUT /employee/me/password { current_password, new_password }
+  → Verifica current_password
+  → Actualiza hash en Medusa
+  → Email de confirmación: "Tu contraseña fue cambiada"
+```
 ---
 
 ## 8. Stack tecnológico completo
@@ -494,9 +547,9 @@ En la configuración de Docker Desktop, activar: **Settings → Resources → WS
 Luego, desde la terminal WSL:
 ```bash
 # Levantar PostgreSQL:
-docker run --name goldies-db \
-  -e POSTGRES_PASSWORD=goldies123 \
-  -e POSTGRES_DB=goldies \
+docker run --name prestige-rewards-db \
+  -e POSTGRES_PASSWORD=prestige123 \
+  -e POSTGRES_DB=prestigerewards \
   -p 5432:5432 \
   -d postgres:15
 
@@ -509,12 +562,12 @@ docker ps
 # Importante: trabajar siempre dentro del filesystem de Linux, no en /mnt/c/
 cd ~   # o crear una carpeta: mkdir ~/proyectos && cd ~/proyectos
 
-npx create-medusa-app@latest goldies-backend
+npx create-medusa-app@latest prestige-rewards-backend
 # Cuando pregunte: elegir "minimal" (sin demo data)
 # Cuando pregunte por la DB string:
-# postgres://postgres:goldies123@localhost:5432/goldies
+# postgres://postgres:prestige123@localhost:5432/prestigerewards
 
-cd goldies-backend
+cd prestige-rewards-backend
 ```
 
 **4. Abrir en VS Code**
@@ -526,10 +579,69 @@ code .
 **5. Verificar que funciona**
 ```bash
 npm run dev
-# Debe levantar en http://localhost:9000
-# Admin UI en http://localhost:9000/app
+# Debe levantar en http://localhost:7001
+# Admin UI en http://localhost:7001/app
 ```
 
+
+### 🍎 macOS
+ 
+**1 — Node.js:**
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# Reiniciar terminal:
+nvm install 20 && nvm use 20
+```
+ 
+**2 — Docker Desktop:** docker.com/products/docker-desktop (elegir Apple Silicon o Intel).
+ 
+**3 — PostgreSQL y proyecto:**
+```bash
+docker run --name prestige-rewards-db \
+  -e POSTGRES_PASSWORD=prestige123 \
+  -e POSTGRES_DB=prestigerewards \
+  -p 5432:5432 -d postgres:15
+ 
+npx create-medusa-app@latest prestige-backend
+# DB string: postgres://postgres:prestige123@localhost:5432/prestigerewards
+ 
+cd prestige-backend
+npm run dev
+```
+ 
+---
+ 
+### 🐧 Linux
+ 
+**1 — Node.js:**
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc
+nvm install 20 && nvm use 20
+```
+ 
+**2 — Docker (Ubuntu/Debian):**
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo usermod -aG docker $USER
+# Cerrar sesión y volver a entrar
+```
+ 
+**3 — PostgreSQL y proyecto:**
+```bash
+docker run --name prestige-rewards-db \
+  -e POSTGRES_PASSWORD=prestige123 \
+  -e POSTGRES_DB=prestigerewards \
+  -p 5432:5432 -d postgres:15
+ 
+npx create-medusa-app@latest prestige-rewards-backend
+# DB string: postgres://postgres:prestige123@localhost:5432/prestigerewards
+ 
+cd prestige-backend
+npm run dev
+```
+ 
+---
 ---
 
 ## 10. Variables de entorno
@@ -538,7 +650,7 @@ Crear archivo `.env` en la raíz del proyecto:
 
 ```env
 # Base de datos
-DATABASE_URL=postgres://postgres:goldies123@localhost:5432/goldies
+DATABASE_URL=postgres://postgres:prestige123@localhost:5432/prestigerewards
 
 # Medusa
 MEDUSA_ADMIN_ONBOARDING_TYPE=default
@@ -551,8 +663,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...     ← se genera al crear el webhook
 
 # Email (SendGrid)
 SENDGRID_API_KEY=SG....
-SENDGRID_FROM=noreply@goldies.com
-ADMIN_EMAIL=admin@goldies.com       ← email del admin que recibe los canjes
+SENDGRID_FROM=noreply@prestigerewards.com
+ADMIN_EMAIL=admin@prestigerewards.com       ← email del admin que recibe los canjes
 
 # Frontend (para CORS)
 STORE_CORS=http://localhost:3000
@@ -566,7 +678,7 @@ ADMIN_CORS=http://localhost:7001
 ## 11. Estructura de carpetas del proyecto
 
 ```
-goldies-backend/
+prestige-rewards-backend/
 ├── src/
 │   ├── modules/
 │   │   ├── goldie/                     ← módulo de puntos y canjes
@@ -575,20 +687,21 @@ goldies-backend/
 │   │   │   └── models/
 │   │   │       ├── goldie-transaction.ts
 │   │   │       └── redemption-request.ts
-│   │   └── company/                    ← módulo de empresas, employers y employees
+│   │   └── company/                    ← módulo de empresas, agents y employees
 │   │       ├── index.ts
 │   │       ├── service.ts
 │   │       └── models/
 │   │           ├── company.ts
-│   │           ├── employer.ts
+│   │           ├── agent.ts
 │   │           └── employee.ts
 │   │
 │   ├── api/
 │   │   ├── admin/                      ← rutas exclusivas del super admin
 │   │   │   ├── companies/
 │   │   │   ├── transactions/
+│   │   │   ├── employees/
 │   │   │   └── redemptions/
-│   │   ├── employer/                   ← rutas del empleador
+│   │   ├── agent/                   ← rutas del agente
 │   │   │   ├── company/
 │   │   │   ├── employees/
 │   │   │   └── transactions/
@@ -609,7 +722,12 @@ goldies-backend/
 │   ├── subscribers/                    ← listeners de eventos internos
 │   │   ├── on-redemption-confirmed.ts  ← envía emails post-pago
 │   │   └── on-goldies-assigned-to-employee.ts      ← notifica al empleado que recibió puntos
-│   │   └── on-goldies-assigned-by-employer.ts      ← notifica a los empleadores que asignaron puntos desde su empresa a uno o más empleados
+│   │       → Dispara con: employee_assignment
+│   │       → Email al empleado: "Recibiste X goldies"
+│   │   └── on-goldies-assigned-by-agent.ts
+  │         → Dispara con: employee_assignment (mismo evento)
+  │         → Busca todos los agentes de la company del empleado
+  │         → Email a cada agente: "Se asignaron X goldies a [nombre empleado]"
 │   │
 │   └── admin/                          ← extensiones del panel Medusa Admin
 │       └── widgets/
@@ -624,11 +742,11 @@ goldies-backend/
 
 ## 12. Decisiones de diseño
 
-### ¿Por qué `Employer` y `Employee` son tablas separadas y no una sola con `role`?
-Tienen responsabilidades, accesos y datos completamente distintos: el employer no tiene saldo de goldies, accede a una página diferente, y es creado por el admin (no se registra solo). Mezclarlos en una tabla con un campo `role` crearía columnas nullable innecesarias y haría más difícil razonar sobre permisos. Tablas separadas = código más claro.
+### ¿Por qué `Agent` y `Employee` son tablas separadas y no una sola con `role`?
+Tienen responsabilidades, accesos y datos completamente distintos: el agent/empleado no tiene saldo de goldies, accede a una página diferente, y es creado por el admin (no se registra solo). Mezclarlos en una tabla con un campo `role` crearía columnas nullable innecesarias y haría más difícil razonar sobre permisos. Tablas separadas = código más claro.
 
-### ¿Por qué el admin crea las cuentas de employer y no se registran solos?
-El employer es un usuario de confianza que administra dinero (goldies) de una empresa. Que el admin los cree manualmente agrega una capa de control. Además simplifica el flujo: no hay formulario de registro, no hay verificación de email, el admin simplemente genera la cuenta y le pasa las credenciales.
+### ¿Por qué el admin crea las cuentas de agent y no se registran solos?
+El agent es un usuario de confianza que administra dinero (goldies) de una empresa. Que el admin los cree manualmente agrega una capa de control. Además simplifica el flujo: no hay formulario de registro, no hay verificación de email, el admin simplemente genera la cuenta y le pasa las credenciales.
 
 ### ¿Por qué goldies son integers y no decimales?
 Simplicidad. Los puntos se asignan en números enteros y se consumen enteros. No hay fracciones de goldie.
@@ -645,6 +763,9 @@ El flujo de canje es demasiado custom (pago simbólico + notificación al admin 
 ### ¿Por qué `GoldieTransaction` tiene `amount` negativo para canjes?
 Permite calcular el saldo en cualquier momento sumando todas las transacciones de una entidad: `SUM(amount)`. Negativo = salida de puntos. Positivo = entrada. Esto también hace más fácil construir un historial con una sola query.
 
+### ¿Por qué algunos campos de dirección son opcionales?
+delivery_state, delivery_phone y delivery_notes son opcionales porque varían según el país. El frontend debe aplicar validación contextual según delivery_country.
+
 ---
 
 ## 13. Roadmap de desarrollo
@@ -653,16 +774,16 @@ Permite calcular el saldo en cualquier momento sumando todas las transacciones d
 - [ ] Instalar WSL2, Node 20, Docker, VS Code
 - [ ] Crear proyecto Medusa 2
 - [ ] Configurar PostgreSQL local con Docker
-- [ ] Crear módulo `company` con modelos `Company`, `Employer`, `Employee`
+- [ ] Crear módulo `company` con modelos `Company`, `Agent`, `Employee`
 - [ ] Crear módulo `goldie` con modelos `GoldieTransaction`, `RedemptionRequest`
 
 ### Fase 2 — Rutas de admin (2-3 días)
 - [ ] CRUD de empresas (`/admin/companies`)
-- [ ] Crear cuentas de employer y employee desde admin
+- [ ] Crear cuentas de agent y employee desde admin
 - [ ] Asignación masiva de goldies a empresa
 - [ ] Ver historial de transacciones y canjes
 
-### Fase 3 — Rutas de empleador (1-2 días)
+### Fase 3 — Rutas de agente (1-2 días)
 - [ ] Ver info y saldo de su empresa
 - [ ] Listar, agregar y desactivar empleados
 - [ ] Asignar goldies a empleados individuales
@@ -682,8 +803,6 @@ Permite calcular el saldo en cualquier momento sumando todas las transacciones d
 - [ ] Variables de entorno de producción
 - [ ] Deploy (a definir con el equipo)
 - [ ] Configurar dominio y CORS
-
-**Estimación total:** ~10-13 días de desarrollo
 
 ---
 
