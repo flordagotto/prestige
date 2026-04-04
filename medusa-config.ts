@@ -20,5 +20,11 @@ module.exports = defineConfig({
         databaseUrl: process.env.DATABASE_URL,
       },
     },
+    {
+      resolve: "./src/modules/goldie",
+      options: {
+        databaseUrl: process.env.DATABASE_URL,
+      },
+    },
   ],
 })
