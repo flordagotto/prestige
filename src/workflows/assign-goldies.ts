@@ -166,7 +166,7 @@ const registerTransactionStep = createStep(
 export const assignGoldiesToCompanyWorkflow = createWorkflow(
   "assign-goldies-to-company",
   (input: AssignToCompanyInput) => {
-    updateCompanyBalanceStep(input)
+    assignGoldiesToCompanyStep(input)
     registerTransactionStep(input)
     return new WorkflowResponse({ success: true })
   }
@@ -177,7 +177,7 @@ export const assignGoldiesToCompanyWorkflow = createWorkflow(
 export const assignGoldiesToEmployeeWorkflow = createWorkflow(
   "assign-goldies-to-employee",
   (input: AssignToEmployeeInput) => {
-    updateEmployeeBalanceStep(input)
+    assignGoldiesToEmployeeStep(input)
     registerTransactionStep(input)
     return new WorkflowResponse({ success: true })
   }
