@@ -1,5 +1,5 @@
 import { createWorkflow, createStep, StepResponse, WorkflowResponse } from "@medusajs/framework/workflows-sdk"
-import company, { COMPANY_MODULE } from "../modules/company"
+import { COMPANY_MODULE } from "../modules/company"
 import { GOLDIE_MODULE } from "../modules/goldie"
 import CompanyModuleService from "../modules/company/service"
 import GoldieModuleService from "../modules/goldie/service"
