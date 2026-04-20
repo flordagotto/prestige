@@ -3,6 +3,8 @@ import { COMPANY_MODULE } from "../modules/company"
 import { GOLDIE_MODULE } from "../modules/goldie"
 import CompanyModuleService from "../modules/company/service"
 import GoldieModuleService from "../modules/goldie/service"
+import { CompanyStatus } from "../modules/utils/enums/company-status"
+import { EmployeeStatus } from "../modules/utils/enums/employee-status"
 
 // ─── Tipos ───────────────────────────────────────────────
 
@@ -32,6 +34,10 @@ const assignGoldiesToCompanyStep = createStep(
     const companyService: CompanyModuleService = container.resolve(COMPANY_MODULE)
 
     const company = await companyService.retrieveCompany(input.company_id)
+
+    if(company.status != CompanyStatus.ACTIVE){
+      throw new Error(`The company you are trying to assign Goldies to is inactive.`)
+    }
 
     const companyId = company.id;
     const oldGoldieBalance = company.goldie_balance ?? 0
@@ -77,6 +83,14 @@ const assignGoldiesToEmployeeStep = createStep(
 
     const company = await companyService.retrieveCompany(input.company_id)
     const employee = await companyService.retrieveEmployee(input.employee_id)
+
+    if(company.status != CompanyStatus.ACTIVE){
+      throw new Error(`The company you are trying to withdraw Goldies from is inactive.`)
+    }
+
+    if(employee.status != EmployeeStatus.ACTIVE){
+      throw new Error(`The employee you are trying to assign Goldies to is inactive.`)
+    }
 
     const companyId = company.id;
     const employeeId = employee.id;
