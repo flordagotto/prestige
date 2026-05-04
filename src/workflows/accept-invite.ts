@@ -1,8 +1,12 @@
 import {
   createStep,
+  createWorkflow,
   StepResponse,
+  WorkflowResponse,
 } from "@medusajs/framework/workflows-sdk"
 import { Modules } from "@medusajs/framework/utils"
+import CompanyModuleService from "../modules/company/service"
+import { COMPANY_MODULE } from "../modules/company"
 
 type AcceptInviteInput = {
   token: string
@@ -29,6 +33,19 @@ type CreateCustomerInput = {
   first_name: string
   last_name: string
   email: string
+}
+
+type CreateActorInput = {
+  customerId: string
+  companyId: string
+  role: "agent" | "employee"
+}
+
+type AcceptInviteWorkflowInput = AcceptInviteInput & {
+  url: string
+  headers: Record<string, unknown>
+  query: Record<string, unknown>
+  protocol: string
 }
 
 // ─── Step 1: validar token ───────────────────────────────
@@ -185,5 +202,113 @@ const linkAuthIdentityStep = createStep(
       app_metadata: {},
     })
     logger.warn(`Rolled back auth identity link: ${input.authIdentityId}`)
+  }
+)
+
+// ─── Step 6: create agent or employee ────────────────────
+
+const createActorStep = createStep(
+  "create-actor",
+  async (input: CreateActorInput, { container }) => {
+    const companyService: CompanyModuleService = container.resolve(COMPANY_MODULE)
+    const logger = container.resolve("logger")
+
+    if (input.role === "agent") {
+      const agent = await companyService.createAgents({
+        user_id: input.customerId,
+        company_id: input.companyId,
+      })
+      logger.info(`Agent created: ${agent.id} for company: ${input.companyId}`)
+      return new StepResponse({ actor: agent }, { id: agent.id, role: "agent" as const })
+    }
+
+    const employee = await companyService.createEmployees({
+      user_id: input.customerId,
+      company_id: input.companyId,
+    })
+    logger.info(`Employee created: ${employee.id} for company: ${input.companyId}`)
+    return new StepResponse({ actor: employee }, { id: employee.id, role: "employee" as const })
+  },
+  async (
+    actorData: { id: string; role: "agent" | "employee" } | undefined,
+    { container }
+  ) => {
+    if (!actorData) return
+    const companyService: CompanyModuleService = container.resolve(COMPANY_MODULE)
+    const logger = container.resolve("logger")
+
+    if (actorData.role === "agent") {
+      await companyService.deleteAgents(actorData.id)
+      logger.warn(`Rolled back agent: ${actorData.id}`)
+    } else {
+      await companyService.deleteEmployees(actorData.id)
+      logger.warn(`Rolled back employee: ${actorData.id}`)
+    }
+  }
+)
+
+// ─── Step 7: accept invite ───────────────────────────────
+
+const acceptInviteStep = createStep(
+  "accept-invite",
+  async (inviteId: string, { container }) => {
+    const userService = container.resolve(Modules.USER)
+    const logger = container.resolve("logger")
+
+    await userService.updateInvites({
+      id: inviteId,
+      accepted: true,
+    })
+
+    logger.info(`Invite accepted: ${inviteId}`)
+    return new StepResponse({ success: true }, inviteId)
+  },
+  async (inviteId: string | undefined, { container }) => {
+    if (!inviteId) return
+    const userService = container.resolve(Modules.USER)
+    const logger = container.resolve("logger")
+    await userService.updateInvites({
+      id: inviteId,
+      accepted: false,
+    })
+    logger.warn(`Rolled back invite acceptance: ${inviteId}`)
+  }
+)
+
+export const acceptInviteWorkflow = createWorkflow(
+  "accept-invite",
+  (input: AcceptInviteWorkflowInput) => {
+    const { invite, metadata } = validateInviteTokenStep(input)
+    validatePasswordStep(input)
+
+    const { authIdentity } = registerAuthIdentityStep({
+      email: invite.email,
+      password: input.password,
+      url: input.url,
+      headers: input.headers,
+      query: input.query,
+      protocol: input.protocol,
+    })
+
+    const { customer } = createCustomerStep({
+      first_name: metadata.first_name,
+      last_name: metadata.last_name,
+      email: invite.email,
+    })
+
+    linkAuthIdentityStep({
+      authIdentityId: authIdentity.id,
+      customerId: customer.id,
+    })
+
+    createActorStep({
+      customerId: customer.id,
+      companyId: metadata.company_id,
+      role: metadata.role,
+    })
+
+    acceptInviteStep(invite.id)
+
+    return new WorkflowResponse({ success: true })
   }
 )

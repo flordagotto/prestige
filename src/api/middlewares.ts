@@ -85,5 +85,5 @@ export default defineMiddlewares({
   ],
 })
 
-// TODO: La única diferencia con lo que hablábamos es que si un usuario es agent de una empresa y también employee de otra (caso raro pero posible), el middleware actual tomaría el primero que encuentre. Por ahora está bien así.
+// TODO: La única diferencia con lo que hablábamos es que si un usuario es agent de una empresa y también employee de otra, el middleware actual tomaría el primero que encuentre. Por ahora está bien así.
 // controlar q esto no pueda suceder
