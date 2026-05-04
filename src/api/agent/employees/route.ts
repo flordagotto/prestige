@@ -1,22 +1,32 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { COMPANY_MODULE } from "../../../modules/company"
-import CompanyModuleService from "../../../modules/company/service"
+import { Modules } from "@medusajs/framework/utils"
+import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 
-export async function GET(
+export async function POST(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
-  const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
+  const authReq = req as AuthenticatedMedusaRequest
+  const userService = req.scope.resolve(Modules.USER)
 
-  // TODO: cuando esté el auth, obtener company_id del agent autenticado
-  // por ahora lo recibimos como query param para poder probar
-  const { company_id } = req.query as { company_id: string }
-
-  if (!company_id) {
-    return res.status(400).json({ message: "company_id es requerido" })
+  const { first_name, last_name, email } = req.body as {
+    first_name: string
+    last_name: string
+    email: string
   }
 
-  const employees = await companyService.listEmployees({ company_id })
+  // obtener el agent autenticado (inyectado por el middleware)
+  const agent = (authReq as any).agent
 
-  res.json({ employees })
+  const invite = await userService.createInvites({
+    email,
+    metadata: {
+      company_id: agent.company_id,
+      role: "employee",
+      first_name,
+      last_name,
+    },
+  })
+
+  res.json({ invite })
 }

@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 
+// crea invites de admins a agents
 export async function POST(
   req: MedusaRequest,
   res: MedusaResponse
@@ -14,7 +15,7 @@ export async function POST(
   }
 
   const expires_at = new Date()
-  expires_at.setHours(expires_at.getHours() + 72)
+  expires_at.setHours(expires_at.getHours() + 72) // TODO: ver por que se setea +24hs
 
   const invite = await userService.createInvites([{
     email,
