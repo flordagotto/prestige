@@ -8,7 +8,7 @@ export async function POST(
   res: MedusaResponse
 ) {
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
-  const userService = req.scope.resolve(Modules.USER)
+  const customerService = req.scope.resolve(Modules.CUSTOMER)
 
   const { first_name, last_name, email } = req.body as {
     first_name: string
@@ -16,14 +16,14 @@ export async function POST(
     email: string
   }
 
-  const user = await userService.createUsers({
+  const customer = await customerService.createCustomers({
     first_name,
     last_name,
     email,
   })
 
   const employee = await companyService.createEmployees({
-    user_id: user.id,
+    customer_id: customer.id,
     company_id: req.params.id,
   })
   // ver que otros datos vamos a pedir: identificacion, fecha de nacimiento, algo?

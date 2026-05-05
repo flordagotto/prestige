@@ -1,10 +1,10 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import GoldieTransaction from "./models/goldie-transaction"
-import RedemptionRequest from "./models/redemption-request"
+import GoldieOrder from "./models/goldie-order"
 
 class GoldieModuleService extends MedusaService({
   GoldieTransaction,
-  RedemptionRequest,
+  GoldieOrder,
 }) {}
 
 export default GoldieModuleService

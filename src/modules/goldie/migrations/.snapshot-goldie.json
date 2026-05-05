@@ -23,9 +23,9 @@
           "primary": false,
           "nullable": false,
           "enumItems": [
-            "company_assignment",
-            "employee_assignment",
-            "redemption",
+            "earned",
+            "spent",
+            "topup",
             "adjustment"
           ],
           "mappedType": "enum"
@@ -48,15 +48,6 @@
           "nullable": true,
           "mappedType": "text"
         },
-        "product_id": {
-          "name": "product_id",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "text"
-        },
         "amount": {
           "name": "amount",
           "type": "integer",
@@ -66,8 +57,8 @@
           "nullable": false,
           "mappedType": "integer"
         },
-        "performed_by": {
-          "name": "performed_by",
+        "reference_type": {
+          "name": "reference_type",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
@@ -75,13 +66,22 @@
           "nullable": false,
           "mappedType": "text"
         },
-        "note": {
-          "name": "note",
+        "reference_id": {
+          "name": "reference_id",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": true,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "performed_by": {
+          "name": "performed_by",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
           "mappedType": "text"
         },
         "created_at": {
@@ -155,6 +155,15 @@
           "nullable": false,
           "mappedType": "text"
         },
+        "medusa_order_id": {
+          "name": "medusa_order_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
         "employee_id": {
           "name": "employee_id",
           "type": "text",
@@ -164,8 +173,8 @@
           "nullable": false,
           "mappedType": "text"
         },
-        "product_id": {
-          "name": "product_id",
+        "transaction_id": {
+          "name": "transaction_id",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
@@ -173,126 +182,14 @@
           "nullable": false,
           "mappedType": "text"
         },
-        "goldies_cost": {
-          "name": "goldies_cost",
+        "total_points_cost": {
+          "name": "total_points_cost",
           "type": "integer",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
           "mappedType": "integer"
-        },
-        "payment_intent_id": {
-          "name": "payment_intent_id",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "text"
-        },
-        "payment_status": {
-          "name": "payment_status",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "'pending'",
-          "enumItems": [
-            "pending",
-            "paid",
-            "failed"
-          ],
-          "mappedType": "enum"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "'pending'",
-          "enumItems": [
-            "pending",
-            "processing",
-            "completed",
-            "cancelled"
-          ],
-          "mappedType": "enum"
-        },
-        "delivery_full_name": {
-          "name": "delivery_full_name",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "delivery_street": {
-          "name": "delivery_street",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "delivery_city": {
-          "name": "delivery_city",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "delivery_state": {
-          "name": "delivery_state",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "text"
-        },
-        "delivery_postal_code": {
-          "name": "delivery_postal_code",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "delivery_country": {
-          "name": "delivery_country",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "delivery_phone": {
-          "name": "delivery_phone",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "text"
-        },
-        "delivery_notes": {
-          "name": "delivery_notes",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "text"
         },
         "created_at": {
           "name": "created_at",
@@ -327,20 +224,29 @@
           "mappedType": "datetime"
         }
       },
-      "name": "redemption_request",
+      "name": "goldie_order",
       "schema": "public",
       "indexes": [
         {
-          "keyName": "IDX_redemption_request_deleted_at",
+          "keyName": "IDX_goldie_order_transaction_id_unique",
           "columnNames": [],
           "composite": false,
           "constraint": false,
           "primary": false,
           "unique": false,
-          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_redemption_request_deleted_at\" ON \"redemption_request\" (\"deleted_at\") WHERE deleted_at IS NULL"
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"IDX_goldie_order_transaction_id_unique\" ON \"goldie_order\" (\"transaction_id\") WHERE deleted_at IS NULL"
         },
         {
-          "keyName": "redemption_request_pkey",
+          "keyName": "IDX_goldie_order_deleted_at",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_goldie_order_deleted_at\" ON \"goldie_order\" (\"deleted_at\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "goldie_order_pkey",
           "columnNames": [
             "id"
           ],
@@ -351,7 +257,20 @@
         }
       ],
       "checks": [],
-      "foreignKeys": {},
+      "foreignKeys": {
+        "goldie_order_transaction_id_foreign": {
+          "constraintName": "goldie_order_transaction_id_foreign",
+          "columnNames": [
+            "transaction_id"
+          ],
+          "localTableName": "public.goldie_order",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.goldie_transaction",
+          "updateRule": "cascade"
+        }
+      },
       "nativeEnums": {}
     }
   ],

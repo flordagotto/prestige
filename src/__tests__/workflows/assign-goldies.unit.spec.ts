@@ -1,7 +1,7 @@
 import {
   assignGoldiesToCompanyWorkflow,
   assignGoldiesToEmployeeWorkflow,
-} from "../assign-goldies"
+} from "../../workflows/assign-goldies"
 
 describe("assignGoldiesToCompanyWorkflow", () => {
   describe("amount", () => {
