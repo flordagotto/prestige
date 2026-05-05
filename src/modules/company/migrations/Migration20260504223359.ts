@@ -1,6 +1,6 @@
 import { Migration } from "@medusajs/framework/mikro-orm/migrations";
 
-export class Migration20260404003504 extends Migration {
+export class Migration20260504223359 extends Migration {
 
   override async up(): Promise<void> {
     this.addSql(`create table if not exists "category" ("id" text not null, "name" text not null, "slug" text not null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "category_pkey" primary key ("id"));`);
@@ -14,11 +14,11 @@ export class Migration20260404003504 extends Migration {
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_category_x_company_company_id" ON "category_x_company" ("company_id") WHERE deleted_at IS NULL;`);
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_category_x_company_deleted_at" ON "category_x_company" ("deleted_at") WHERE deleted_at IS NULL;`);
 
-    this.addSql(`create table if not exists "agent" ("id" text not null, "user_id" text not null, "status" text check ("status" in ('active', 'inactive')) not null default 'active', "company_id" text not null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "agent_pkey" primary key ("id"));`);
+    this.addSql(`create table if not exists "agent" ("id" text not null, "customer_id" text not null, "status" text check ("status" in ('active', 'inactive')) not null default 'active', "company_id" text not null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "agent_pkey" primary key ("id"));`);
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_agent_company_id" ON "agent" ("company_id") WHERE deleted_at IS NULL;`);
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_agent_deleted_at" ON "agent" ("deleted_at") WHERE deleted_at IS NULL;`);
 
-    this.addSql(`create table if not exists "employee" ("id" text not null, "user_id" text not null, "goldie_balance" integer not null default 0, "status" text check ("status" in ('active', 'inactive')) not null default 'active', "company_id" text not null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "employee_pkey" primary key ("id"));`);
+    this.addSql(`create table if not exists "employee" ("id" text not null, "customer_id" text not null, "goldie_balance" integer not null default 0, "status" text check ("status" in ('active', 'inactive')) not null default 'active', "company_id" text not null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "employee_pkey" primary key ("id"));`);
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_employee_company_id" ON "employee" ("company_id") WHERE deleted_at IS NULL;`);
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_employee_deleted_at" ON "employee" ("deleted_at") WHERE deleted_at IS NULL;`);
 

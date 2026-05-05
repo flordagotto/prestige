@@ -153,15 +153,16 @@ const registerTransactionStep = createStep(
   async (input: AssignToCompanyInput | AssignToEmployeeInput, { container }) => {
     const goldieService: GoldieModuleService = container.resolve(GOLDIE_MODULE)
 
-    const isEmployeeAssignment = "employee_id" in input // no me gusta pero vamos a cambiar el esquema de bd asi q esto seguro vuela
+    const isEmployeeAssignment = "employee_id" in input 
 
     const transaction = await goldieService.createGoldieTransactions({
-      type: isEmployeeAssignment ? "employee_assignment" : "company_assignment", //deberiamos crear un enum pero vamos a cambiar el esquema de bd asi q esto seguro vuela
+      type: isEmployeeAssignment ? "adjustment" : "topup", 
       company_id: input.company_id,
       employee_id: isEmployeeAssignment ? (input as AssignToEmployeeInput).employee_id : null,
       amount: input.amount,
+      reference_type: "manual",
+      reference_id: "manual_assignment",
       performed_by: input.performed_by,
-      note: (input as AssignToCompanyInput).note ?? null,
     })
 
     return new StepResponse(transaction, transaction.id)
