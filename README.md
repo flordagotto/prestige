@@ -802,8 +802,6 @@ Si desactivamos un agent o employee, el efecto debe ser inmediato. Con el rol en
 - [ ] Deploy (a definir con el equipo)
 - [ ] Configurar dominio y CORS
 
-**Estimación restante:** ~12-17 días de desarrollo
-
 ---
 
 *Documento generado como base de trabajo. Actualizar a medida que evolucione el proyecto.*
