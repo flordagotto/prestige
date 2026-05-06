@@ -1,7 +1,7 @@
-# 🪙 Prestige Rewards — Documentación Backend
+# 🏆 Prestige Rewards — Documentación Backend
 > Sistema de gestión de puntos para empleados · Backend con Medusa 2
-> 
-> **Última actualización:** Marzo 2026  
+>
+> **Última actualización:** Mayo 2026
 > **Stack:** Medusa 2 · Node.js · TypeScript · PostgreSQL · Stripe · SendGrid
 
 ---
@@ -30,21 +30,25 @@
 
 ### Actores del sistema
 
-| Actor | Descripción |
-|-------|-------------|
-| **Super Admin** | Administrador de la plataforma Prestige Rewards. Gestiona empresas, productos y asignación masiva de puntos. |
-| **Agente** | Empresa cliente. Un agente empleador de la empresa gestiona los puntos que tiene asignados y los distribuye entre sus empleados. |
-| **Empleado** | Usuario final. Recibe puntos, ve su saldo, explora el catálogo y solicita canjes. |
+| Rol interno | Nombre en UI | Descripción |
+|-------------|--------------|-------------|
+| `admin` | Admin | Gestiona la plataforma: empresas, categorías, productos y asignación masiva de puntos. |
+| `agent` | Agente | Representa a una empresa cliente. Distribuye puntos entre sus employees y gestiona su equipo. |
+| `employee` | Employee | Usuario final. Recibe puntos, ve el catálogo y solicita canjes. |
+
+> **Nota de nomenclatura:** en el código y la base de datos los roles se llaman `admin`, `agent` y `employee`. En la UI pueden mostrarse con etiquetas distintas según el contexto.
 
 ### Qué hace el sistema (y qué NO hace)
 
 **Sí hace:**
 - Gestión de usuarios y autenticación (3 roles)
-- Asignación de puntos (admin → empresa → empleado)
-- Catálogo de productos (activar/desactivar)
-- Solicitud de canje de productos
+- Creación de usuarios via sistema de invitaciones (email + link de registro)
+- Asignación de puntos (admin → empresa → employee)
+- Catálogo de productos filtrado por categorías de empresa
+- Solicitud de canje con dirección de entrega incluida
 - Cobro simbólico de 1€ antes del canje (Stripe)
-- Notificaciones por email (confirmaciones, solicitudes de canje)
+- Notificaciones por email (confirmaciones, solicitudes de canje) ← pendiente de implementar
+- Gestión de perfil y contraseña por parte del employee
 
 **NO hace:**
 - Logística de envío de productos
@@ -58,18 +62,18 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    FRONTEND (Next.js)                   │
-│  /admin   /agent/:id   /employee/:id                 │
+│  /admin   /agent/:id   /employee/:id                    │
 └──────────────────┬──────────────────────────────────────┘
                    │ HTTP / REST API
 ┌──────────────────▼──────────────────────────────────────┐
-│                 BACKEND (Medusa 2)                      │
+│                 BACKEND (Medusa 2)                       │
 │                                                         │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │  Medusa     │  │   Módulo     │  │   Módulo      │  │
-│  │  Core       │  │   Goldies    │  │   Company     │
+│  │  Core       │  │   Goldies    │  │   Company     │  │
 │  │  (auth,     │  │  (puntos,    │  │   (empresas,  │  │
-│  │  productos, │  │   canjes,    │  │    empleados) │  │
-│  │  admin UI)  │  │   saldos)    │  │               │  │
+│  │  productos, │  │   canjes,    │  │    agents,    │  │
+│  │  admin UI)  │  │   saldos)    │  │   employees)  │  │
 │  └─────────────┘  └──────────────┘  └───────────────┘  │
 └──────────┬─────────────────┬───────────────┬────────────┘
            │                 │               │
@@ -81,9 +85,10 @@
 
 ### Por qué Medusa 2
 
-Medusa 2 es un framework de comercio headless. En nuestro caso lo usamos no para e-commerce tradicional sino para aprovechar:
+Medusa 2 es un framework de comercio headless. Lo usamos para aprovechar:
 
 - **Sistema de autenticación** ya construido (login, tokens JWT, roles)
+- **Sistema de invitaciones** para onboarding de agents y employees
 - **Gestión de productos** (catálogo de productos canjeables)
 - **Panel de administración** (Medusa Admin UI — gratis, ya viene incluido)
 - **Sistema de módulos** (nos permite agregar lógica custom sin romper el core)
@@ -100,23 +105,26 @@ Medusa 2 es un framework de comercio headless. En nuestro caso lo usamos no para
 | Login / logout | ✅ | — |
 | JWT tokens y sesiones | ✅ | — |
 | Panel de admin | ✅ | Agregar secciones de goldies |
-| CRUD de productos | ✅ | Asociar puntos al producto |
-| Gestión de usuarios | ✅ | Agregar campo `goldie_balance` |
+| CRUD de productos | ✅ | Asociar puntos y categoría al producto |
+| Sistema de invitaciones | ✅ | Extendemos para agents y employees |
+| Gestión de usuarios | ✅ | Agregar campo `goldie_role` |
 | Webhooks / eventos | ✅ | — |
 | Integración Stripe | ✅ (plugin) | Configurar el cobro de 1€ |
-| Emails transaccionales | ✅ (plugin) | Templates de goldies |
+| Emails transaccionales | ✅ (plugin) | Templates de Prestige Rewards |
 
 ### Conceptos clave de Medusa 2 que usaremos
 
-**Módulos (`modules/`):** Bloques de funcionalidad independientes. Vamos a crear dos módulos custom:
+**Módulos (`modules/`):** Bloques de funcionalidad independientes. Vamos a crear dos:
 - `goldie-module`: gestión de puntos, saldos, transacciones
-- `company-module`: gestión de empresas y sus empleados
+- `company-module`: gestión de empresas, agents y employees
 
-**Workflows:** Secuencias de pasos con manejo de errores y rollback. Los usamos para operaciones críticas como "descontar puntos + registrar canje + enviar email".
+**Workflows:** Secuencias de pasos con manejo de errores y rollback automático. Los usamos para operaciones críticas como aceptar una invitación, asignar goldies o procesar un canje.
 
-**Subscribers:** Escuchan eventos del sistema. Por ejemplo, cuando un empleado hace un canje, un subscriber envía el email al admin.
+**Subscribers:** Escuchan eventos del sistema. Por ejemplo, cuando se crea una invitación, un subscriber (pendiente de implementar) enviará el email con el link de registro.
 
 **API Routes (`api/`):** Endpoints REST adicionales que nosotros definimos, más allá de los que Medusa ya expone.
+
+**Middlewares (`api/middlewares.ts`):** Interceptan requests para validar autenticación y rol antes de llegar a la ruta.
 
 ---
 
@@ -124,92 +132,95 @@ Medusa 2 es un framework de comercio headless. En nuestro caso lo usamos no para
 
 ### Entidades custom (las que vamos a crear)
 
-
 #### `Category` (Categoría de industria)
 ```
 id          uuid
 name        string    ← ej: "Photography", "Electronics", "Food"
 slug        string    ← ej: "photography", "electronics", "food" (único, indexado)
 created_at  timestamp
- 
+
 NOTA: Catálogo maestro de categorías. Solo el admin crea y elimina categorías.
 Tanto Company (via CategoryXCompany) como Product la referencian.
 ```
- 
+
 #### `CategoryXCompany` (Categorías que pertenece una empresa — relación N:M)
 ```
 id          uuid
 company_id  uuid  ← FK a Company
 category_id uuid  ← FK a Category
 created_at  timestamp
- 
+
 EJEMPLO: Samsung tiene categorías Electronics, Photography, Mobile
 → 3 filas en esta tabla con company_id = Samsung.id
- 
+
 LÓGICA DE EXCLUSIÓN: cuando un employee de Samsung busca productos,
 se excluyen todos los productos cuya category_id esté en esta lista.
 ```
 
-#### `Company` (Empresa)
+#### `Company` (Empresa cliente)
 ```
-id                  uuid
-name                string
-tax_id              string (CUIT / VAT)
-contact_email       string
-status              enum: active | inactive
-goldie_balance      integer  ← puntos disponibles para asignar a empleados
-created_at          timestamp
-updated_at          timestamp
+id             uuid
+name           string
+tax_id         string    ← CUIT / VAT
+contact_email  string
+status         enum: active | inactive
+goldie_balance integer   ← puntos disponibles para asignar a employees
+created_at     timestamp
+updated_at     timestamp
 
 → Las categorías de la empresa se consultan via CategoryXCompany
 ```
- 
+
 #### `Agent` (Usuario agente — puede haber varios por empresa)
 ```
 id          uuid
-user_id     string  ← FK a User de Medusa (creado por el admin)
+user_id     string  ← FK a customer de Medusa (vinculado via auth identity)
 company_id  uuid    ← FK a Company
 status      enum: active | inactive
 created_at  timestamp
- 
+
 NOTA: No tiene goldie_balance. El agent gestiona puntos pero no los recibe.
+NOTA: Se crea al aceptar la invitación via POST /auth/invite.
 ```
 
 #### `Employee` (Usuario empleado)
 ```
-id                  uuid
-user_id             string   ← FK a User de Medusa (creado por el admin o el agent)
-company_id          uuid     ← FK a Company
-goldie_balance      integer  ← puntos acumulados del empleado
-status              enum: active | inactive
-created_at          timestamp
+id             uuid
+user_id        string   ← FK a customer de Medusa (vinculado via auth identity)
+company_id     uuid     ← FK a Company
+goldie_balance integer  ← puntos acumulados del employee
+status         enum: active | inactive
+created_at     timestamp
+
+NOTA: Solo los agents pueden crear employees (via invitación).
+      POST /admin/companies/:id/employees está deshabilitado intencionalmente.
 ```
 
 #### `GoldieTransaction` (historial de todos los movimientos de puntos)
 ```
-id                  uuid
-type                enum: company_assignment | employee_assignment | redemption | adjustment
-company_id          uuid     ← siempre presente (todo movimiento pertenece a una empresa)
-employee_id         uuid     ← nullable: presente en employee_assignment y redemption
-product_id          string   ← nullable: presente solo en redemption
-amount              integer  ← positivo = crédito, negativo = débito
-performed_by        string   ← user_id de quien hizo la operación (admin o agent)
-note                string   ← opcional, para adjustments manuales
-created_at          timestamp
+id           uuid
+type         enum: company_assignment | employee_assignment | redemption | adjustment
+company_id   uuid    ← siempre presente
+employee_id  uuid    ← nullable: presente en employee_assignment y redemption
+product_id   string  ← nullable: presente solo en redemption
+amount       integer ← positivo = crédito, negativo = débito
+performed_by string  ← user_id de quien ejecutó la operación (admin o agent)
+note         string  ← opcional, para adjustments manuales
+created_at   timestamp
 
-Ejemplos de registros:
+Ejemplos:
   type=company_assignment  → admin asignó 1000 goldies a la empresa
-  type=employee_assignment → agent asignó 100 goldies a un empleado
-  type=redemption          → empleado canjeó un producto (amount negativo)
+  type=employee_assignment → agent asignó 100 goldies a un employee
+  type=redemption          → employee canjeó un producto (amount negativo)
 ```
 
 #### `RedemptionRequest` (solicitud de canje de un producto)
 ```
 id                    uuid
-employee_id           uuid     ← FK a Employee
-product_id            string   ← FK a Product de Medusa
-goldies_cost          integer  ← snapshot del precio en goldies al momento del canje
-payment_intent_id     string   ← Stripe payment intent (el 1€ simbólico)
+employee_id           uuid    ← FK a Employee
+product_id            string  ← FK a Product de Medusa
+goldies_cost          integer ← snapshot del precio al momento del canje
+payment_intent_id     string  ← Stripe payment intent (el 1€ simbólico)
 payment_status        enum: pending | paid | failed
 status                enum: pending | processing | completed | cancelled
 
@@ -226,29 +237,29 @@ delivery_notes        string | null    opcional (ej: "piso 3, timbre B")
 created_at            timestamp
 
 Flujo de estados:
-  pending    → se creó la solicitud, esperando pago de 1€
-  processing → pago confirmado, admin notificado, esperando gestión manual
+  pending    → solicitud creada, esperando pago de 1€
+  processing → pago confirmado, admin notificado, pendiente de gestión
   completed  → admin marcó como completado
-  cancelled  → se canceló (pago fallido u otro motivo)
-
-NOTA: La dirección se pide en el mismo formulario que los datos de la tarjeta,
-antes de confirmar el canje. No se almacena en Employee — es dato del canje, no del usuario.
+  cancelled  → cancelado (pago fallido u otro motivo)
 ```
 
-### Entidades de Medusa que extendemos
- 
-- **`User`** → agregamos: `goldie_role` (admin | agent | employee)
-- **`Product`** → agregamos: `goldie_price` (costo en goldies), `category_id` (FK a Category), `is_available`
- 
+### Entidades de Medusa que usamos/extendemos
+
+- **`User`** → admin de la plataforma. Actor type: `user`. Login: `/auth/user/emailpass`
+- **`Customer`** → agents y employees. Actor type: `customer`. Login: `/auth/customer/emailpass`
+- **`AuthIdentity`** → credenciales de autenticación. El campo `app_metadata` guarda `{ customer_id }` para vincular la identity al customer correspondiente
+- **`Invite`** → sistema de invitaciones de Medusa, reutilizado para agents y employees. El campo `metadata` guarda `{ company_id, role, first_name, last_name }`
+- **`Product`** → extendemos con: `goldie_price` (costo en goldies), `category_id` (FK a Category), `is_available`
+
 ### Lógica de exclusión de productos por categoría
- 
+
 ```
 1. Obtener company_id del employee autenticado
 2. Obtener category_ids de CategoryXCompany donde company_id = ese valor
 3. Retornar productos donde:
    - is_available = true
    - category_id NOT IN (lista de categorías de la empresa)
- 
+
 Ejemplo — Samsung tiene: Electronics, Photography, Mobile
 → Un employee de Samsung ve: Food, Travel, Fashion...
 → No ve: cámaras, TVs, celulares (aunque sean de otras marcas)
@@ -259,47 +270,23 @@ Ejemplo — Samsung tiene: Electronics, Photography, Mobile
 ## 5. Módulos custom que vamos a crear
 
 ### `goldie-module`
-Responsabilidades: todo lo relacionado con el movimiento de puntos y los canjes.
 
 ```typescript
 GoldieModuleService:
-  // Saldos
   getCompanyBalance(companyId)
   getEmployeeBalance(employeeId)
 
-  // Asignaciones
   assignToCompany(companyId, amount, performedBy, note?)
-    → valida que amount > 0
-    → actualiza Company.goldie_balance
-    → registra GoldieTransaction (type: company_assignment)
-
   assignToEmployee(companyId, employeeId, amount, performedBy)
-    → valida que Company.goldie_balance >= amount
-    → descuenta de Company.goldie_balance
-    → suma a Employee.goldie_balance
-    → registra GoldieTransaction (type: employee_assignment)
 
-  // Canjes
-  initiateRedemption(employeeId, productId)
-    → valida que Employee.goldie_balance >= product.goldie_price
-    → crea RedemptionRequest (status: pending)
-    → crea Stripe PaymentIntent por 1€
-    → devuelve { redemptionId, clientSecret }
-
+  initiateRedemption(employeeId, productId, deliveryAddress)
   confirmRedemption(paymentIntentId)
-    → llamado desde el webhook de Stripe
-    → descuenta goldies del empleado
-    → registra GoldieTransaction (type: redemption)
-    → actualiza RedemptionRequest.status = "processing"
-    → dispara evento "redemption.confirmed" (para emails)
 
-  // Historial
   getCompanyTransactions(companyId)
   getEmployeeTransactions(employeeId)
 ```
 
 ### `company-module`
-Responsabilidades: gestión de empresas, empleadores (agentes) y empleados. El CRUD de empresas lo hace el admin; el agent solo gestiona su propia gente.
 
 ```typescript
 CompanyModuleService:
@@ -307,7 +294,7 @@ CompanyModuleService:
   createCompany(data)
   updateCompany(id, data)
   toggleCompanyStatus(id)
-  createAgent(companyId, userData)   ← admin crea la cuenta del agent
+  createAgent(companyId, userData)
   setCompanyCategories(companyId, categoryIds)
   createCategory(data)
   getCategories()
@@ -319,158 +306,175 @@ CompanyModuleService:
   getEmployee(employeeId)
   toggleEmployeeStatus(employeeId)
   removeEmployee(companyId, employeeId)
-  createEmployee(companyId, userData)   ← admin o agent crean empleados
+  createEmployee(companyId, userData)  ← solo agents en la práctica
 ```
 
 ---
 
 ## 6. APIs y endpoints
 
-### Rutas de Admin (protegidas, solo Super Admin)
+### Públicos (sin autenticación)
 
 ```
+POST   /auth/user/emailpass              ← login de admin
+POST   /auth/customer/emailpass          ← login de agent o employee
+POST   /auth/invite                      ← aceptar invitación y completar registro
+```
+
+### Rutas de Admin
+
+```
+# Categorías
+GET    /admin/categories
+POST   /admin/categories
+DELETE /admin/categories/:id
+
 # Empresas
-POST   /admin/companies                        ← crear empresa
-GET    /admin/companies                        ← listar todas las empresas
-GET    /admin/companies/:id                    ← detalle de una empresa
-PUT    /admin/companies/:id                    ← editar empresa
-POST   /admin/companies/:id/toggle             ← activar/desactivar empresa
-POST   /admin/companies/:id/assign-goldies     ← asignar goldies en bulk a empresa
-PUT    /admin/companies/:id/categories         ← asignar categorías a la empresa
+POST   /admin/companies
+GET    /admin/companies
+GET    /admin/companies/:id
+PUT    /admin/companies/:id
+POST   /admin/companies/:id/toggle
+POST   /admin/companies/:id/assign-goldies
+PUT    /admin/companies/:id/categories
 
 # Usuarios
-POST   /admin/companies/:id/agents             ← crear cuenta de agent para esa empresa
-POST   /admin/companies/:id/employees          ← crear cuenta de employee para esa empresa
+POST   /admin/companies/:id/agents       ← crea invitación para agent
+POST   /admin/companies/:id/employees    ← DESHABILITADO (403). Solo agents crean employees.
 
 # Visibilidad global
-GET    /admin/transactions                     ← historial completo de todas las empresas
-GET    /admin/redemptions                      ← todas las solicitudes de canje
-PUT    /admin/redemptions/:id/status           ← marcar canje como completed/cancelled
+GET    /admin/transactions
+GET    /admin/redemptions
+PUT    /admin/redemptions/:id/status
 ```
 
-### Rutas de Agent (protegidas, solo empleados de esa empresa)
+### Rutas de Agent
 
 ```
-GET    /agent/company                       ← info y saldo de su empresa
-GET    /agent/employees                     ← listar agentes de su empresa
-GET    /agent/employees/:id                 ← detalle de un employee individual
-POST   /agent/employees                     ← agregar agente a su empresa
-DELETE /agent/employees/:id                 ← desasociar agente
-POST   /agent/employees/:id/toggle          ← activar/desactivar empleado
-POST   /agent/employees/:id/assign-goldies  ← asignar goldies a un empleado
-GET    /agent/transactions                  ← historial de movimientos de la empresa
+GET    /agent/company
+GET    /agent/employees
+GET    /agent/employees/:id
+POST   /agent/employees                  ← crea invitación para employee
+DELETE /agent/employees/:id
+POST   /agent/employees/:id/toggle
+POST   /agent/employees/:id/assign-goldies
+GET    /agent/transactions
 ```
 
-### Rutas de Employee (protegidas, solo el empleado autenticado)
+### Rutas de Employee
 
 ```
 GET    /employee/me
-PUT    /employee/me                           ← actualizar perfil
-PUT    /employee/me/password                  ← cambiar contraseña
-GET    /employee/products                      ← catálogo filtrado (sin productos de su categoría)
-GET    /employee/products/:id                  ← detalle de producto
-POST   /employee/redeem                        ← iniciar solicitud de canje { product_id }
-GET    /employee/redemptions                   ← mis solicitudes de canje
-GET    /employee/transactions                  ← mi historial de goldies
+PUT    /employee/me
+PUT    /employee/me/password
+GET    /employee/products
+GET    /employee/products/:id
+POST   /employee/redeem
+GET    /employee/redemptions
+GET    /employee/transactions
 ```
 
 ### Webhook de Stripe
 
 ```
-POST   /webhooks/stripe                        ← confirmación de pago del 1€
+POST   /webhooks/stripe
 ```
 
 ---
 
 ## 7. Flujos principales
 
-### Flujo A: Alta de empresa y sus usuarios
+### Flujo A: Alta de empresa y usuarios (Admin + sistema de invitaciones)
 
 ```
-Admin en panel → POST /admin/companies { name, tax_id, contact_email, category }
-  → Se crea Company (status: inactive por defecto)
-  → Admin activa la empresa: POST /admin/companies/:id/toggle
+Admin → POST /admin/companies { name, tax_id, contact_email }
+  → Company creada (status: inactive)
 
-Admin crea los agentes de esa empresa:
-  POST /admin/companies/:id/agents { name, email, password }
-  → Se crea User en Medusa con goldie_role = "agent"
-  → Se crea Agent { user_id, company_id }
-  → El agent recibe email con sus credenciales
+Admin → PUT /admin/companies/:id/categories { category_ids: [...] }
+  → Filas creadas en CategoryXCompany
 
-Luego admin (o el agent ya logueado) crea empleados:
-  POST /admin/companies/:id/employees { name, email, password }
-  → Se crea User en Medusa con goldie_role = "employee"
-  → Se crea Employee { user_id, company_id, goldie_balance: 0 }
+Admin → POST /admin/companies/:id/toggle
+  → Company.status = "active"
 
-Solo admin
-PUT /admin/companies/:id/categories { category_ids: ["uuid1", "uuid2"] }
-  → Se crean filas en CategoryXCompany
+Admin → POST /admin/companies/:id/agents { first_name, last_name, email }
+  → Se crea Invite en Medusa con metadata: { company_id, role: "agent", first_name, last_name }
+  → [PENDIENTE] Subscriber on-invite-created envía email al agent con link de registro
 
+Agent → POST /auth/invite { token, password }
+  → Workflow accept-invite:
+    1. Validar token (no expirado, no aceptado)
+    2. Validar password (min 8 chars, 1 mayúscula, 1 número)
+    3. Crear auth identity con email + password (scrypt hash automático)
+    4. Crear Customer en Medusa
+    5. Vincular auth identity al customer (app_metadata: { customer_id })
+    6. Crear Agent { user_id: customer.id, company_id } en nuestra tabla
+    7. Marcar invite como accepted: true
+  → Rollback automático si cualquier paso falla
+
+Agent (logueado) → POST /agent/employees { first_name, last_name, email }
+  → Se crea Invite con metadata: { company_id: agent.company_id, role: "employee", ... }
+  → [PENDIENTE] Email al employee con link de registro
+
+Employee → POST /auth/invite { token, password }
+  → Mismo workflow accept-invite, crea Employee en lugar de Agent
 ```
 
-### Flujo B: Asignación de goldies (Admin → Empresa → Empleado)
+### Flujo B: Asignación de goldies
 
 ```
-Admin hace POST /admin/companies/:id/assign-goldies { amount: 1000, note: "Marzo 2026" }
-  → GoldieModule.assignToCompany()
-  → Company.goldie_balance += 1000
-  → Se registra GoldieTransaction (type: company_assignment, amount: 1000)
-  → Email de notificación a todos los agents de esa empresa
+Admin → POST /admin/companies/:id/assign-goldies { amount: 1000, note: "March 2026" }
+  → Workflow assign-goldies-to-company:
+    Step 1: Validar amount > 0, validar company activa
+    Step 2: Company.goldie_balance += 1000
+    Step 3: Registrar GoldieTransaction (type: company_assignment)
+  → Rollback automático si falla
 
-Agent hace POST /agent/employees/:id/assign-goldies { amount: 100 }
-  → Validar que Company.goldie_balance >= 100
-  → GoldieModule.assignToEmployee()
-  → Company.goldie_balance -= 100
-  → Employee.goldie_balance += 100
-  → Se registra GoldieTransaction (type: employee_assignment, amount: 100)
-  → Email al empleado: "Recibiste 100 goldies"
+Agent → POST /agent/employees/:id/assign-goldies { amount: 100 }
+  → Workflow assign-goldies-to-employee:
+    Step 1: Validar amount > 0, validar company y employee activos
+    Step 2: Validar Company.goldie_balance >= 100
+    Step 3: Company.goldie_balance -= 100, Employee.goldie_balance += 100
+    Step 4: Registrar GoldieTransaction (type: employee_assignment)
+  → Rollback automático si falla
 ```
 
-### Flujo C: Canje de producto (con cobro del 1€ vía Stripe)
+### Flujo C: Canje de producto
 
 ```
-Empleado navega GET /employee/products
-  → Backend obtiene company.category del empleado
-  → Filtra productos: excluye donde product.category = company.category
-  → Devuelve solo productos activos y permitidos
+GET /employee/products
+  → Obtiene categorías de la empresa del employee (CategoryXCompany)
+  → Retorna productos: is_available = true AND category_id NOT IN (categorías empresa)
 
-Empleado elige producto → POST /employee/redeem { product_id: "prod_123" }
+POST /employee/redeem { product_id, delivery_address: { ... } }
   → Validar Employee.goldie_balance >= product.goldie_price
-  → GoldieModule.initiateRedemption()
-  → Crear RedemptionRequest (status: pending)
-  → Crear Stripe PaymentIntent (amount: 100, currency: "eur") ← 1€ = 100 centavos
-  → Devolver { redemption_id, client_secret } al frontend
+  → Crear RedemptionRequest (status: pending, dirección guardada)
+  → Crear Stripe PaymentIntent (amount: 100, currency: "eur")
+  → Retornar { redemption_id, client_secret }
 
-Frontend (Stripe Elements) muestra formulario de tarjeta
-  → Empleado ingresa datos y confirma
-  → Stripe procesa el pago y llama nuestro webhook
+POST /webhooks/stripe (evento: payment_intent.succeeded)
+  → Verificar firma (STRIPE_WEBHOOK_SECRET)
+  → Employee.goldie_balance -= product.goldie_price
+  → GoldieTransaction (type: redemption, amount: negativo)
+  → RedemptionRequest.status = "processing"
+  → [PENDIENTE] Email al admin con datos del canje y dirección
+  → [PENDIENTE] Email al employee: "Tu solicitud fue recibida"
 
-POST /webhooks/stripe recibe evento "payment_intent.succeeded"
-  → Verificar firma del webhook (STRIPE_WEBHOOK_SECRET)
-  → Buscar RedemptionRequest por payment_intent_id
-  → GoldieModule.confirmRedemption()
-    → Employee.goldie_balance -= product.goldie_price
-    → GoldieTransaction (type: redemption, amount: negativo)
-    → RedemptionRequest.status = "processing"
-  → Enviar email al admin: "Nueva solicitud de canje - [empleado] quiere [producto]"
-  → Enviar email al empleado: "Tu solicitud de canje fue recibida"
-
-Admin gestiona manualmente y marca:
-  PUT /admin/redemptions/:id/status { status: "completed" }
-  → Enviar email al empleado: "Tu canje fue procesado"
+PUT /admin/redemptions/:id/status { status: "completed" }
+  → [PENDIENTE] Email al employee: "Tu canje fue procesado"
 ```
 
 ### Flujo D: Perfil y contraseña (Employee)
- 
+
 ```
 PUT /employee/me { first_name, last_name }
-  → Actualiza campos en User de Medusa
- 
+  → Actualiza campos en Customer de Medusa
+
 PUT /employee/me/password { current_password, new_password }
   → Verifica current_password
   → Actualiza hash en Medusa
-  → Email de confirmación: "Tu contraseña fue cambiada"
+  → [PENDIENTE] Email de confirmación
 ```
+
 ---
 
 ## 8. Stack tecnológico completo
@@ -482,171 +486,129 @@ PUT /employee/me/password { current_password, new_password }
 | Runtime | **Node.js 20+** | Requerido por Medusa 2 |
 | Base de datos | **PostgreSQL 15+** | Requerido por Medusa 2 |
 | ORM | **MikroORM** | Incluido en Medusa 2 |
-| Pagos | **Stripe** | Plugin oficial de Medusa, simple de integrar |
+| Pagos | **Stripe** | Plugin oficial de Medusa |
 | Emails | **SendGrid** (o Resend) | Plugin de notificaciones de Medusa |
 | Gestor de paquetes | **npm** | Viene con Node |
-| Dev local DB | **Docker** (en WSL2) | Para correr PostgreSQL localmente |
-| OS de desarrollo | **Windows + WSL2** | Medusa no corre en Windows nativo |
-| Hosting | **Por definir** | A decidir con el equipo cuando corresponda |
+| Dev local DB | **Docker** | Para correr PostgreSQL localmente |
+| OS de desarrollo | **Windows + WSL2 / macOS / Linux** | Ver sección 9 |
+| Hosting | **Por definir** | A decidir con el equipo |
 
 ---
 
 ## 9. Instalación y setup inicial
 
-### ⚠️ Nota para Windows
+### Requisitos comunes (todos los SO)
 
-Medusa 2 **no corre nativamente en Windows**. Es necesario usar **WSL2** (Windows Subsystem for Linux), que básicamente corre un Ubuntu dentro de Windows. Todo el desarrollo se hace desde WSL2, no desde la terminal de Windows.
+- Node.js 20+ via NVM
+- Docker Desktop
+- VS Code (extensiones: ESLint, Prettier, WSL si usás Windows)
 
-### Paso 0 — Instalar WSL2 (solo Windows)
+---
 
-Abrir PowerShell **como administrador** y ejecutar:
+### 🪟 Windows (vía WSL2)
 
+Medusa 2 **no corre nativamente en Windows**. Se requiere WSL2.
+
+**1 — Instalar WSL2** (PowerShell como administrador):
 ```powershell
 wsl --install
+# Reiniciar. Al volver, Ubuntu pide crear un usuario Linux.
+wsl --list --verbose  # debe mostrar Ubuntu VERSION 2
 ```
 
-Esto instala WSL2 con Ubuntu por defecto. Reiniciar la PC cuando lo pida. Al volver, Ubuntu abre una terminal y pide crear un usuario Linux (puede ser cualquier usuario/contraseña, es solo para WSL).
+A partir de acá, **todo se hace desde la terminal de Ubuntu (WSL2)**.
 
-Verificar que quedó bien:
-```powershell
-wsl --list --verbose
-# Debe mostrar Ubuntu con VERSION 2
-```
+> 💡 Instalar la extensión **"WSL"** en VS Code para trabajar con `code .` desde WSL.
 
-De acá en adelante, **todo se hace desde la terminal de Ubuntu (WSL2)**, no desde PowerShell ni CMD.
+**2 — Docker Desktop:** docker.com/products/docker-desktop → Settings → Resources → WSL Integration → activar Ubuntu.
 
-> 💡 En VS Code, instalar la extensión **"WSL"** de Microsoft. Eso permite abrir el proyecto con `code .` desde WSL y que todo funcione perfectamente integrado.
-
-### Requisitos previos (dentro de WSL2)
-
+**3 — Node.js (dentro de WSL2):**
 ```bash
-# Verificar versiones instaladas
-node --version    # necesitás v20 o superior
-npm --version     # v10 o superior
-```
-
-### Herramientas a instalar (dentro de WSL2)
-
-**1. Node.js 20+ (via NVM — recomendado)**
-```bash
-# Instalar NVM
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-# Cerrar y reabrir la terminal WSL, luego:
-nvm install 20
-nvm use 20
-node --version  # debe mostrar v20.x.x
+# Cerrar y reabrir terminal:
+nvm install 20 && nvm use 20
 ```
 
-**2. PostgreSQL con Docker**
-
-Instalar Docker Desktop para Windows desde https://www.docker.com/products/docker-desktop
-
-En la configuración de Docker Desktop, activar: **Settings → Resources → WSL Integration → habilitar para Ubuntu**.
-
-Luego, desde la terminal WSL:
+**4 — PostgreSQL y proyecto (dentro de WSL2):**
 ```bash
-# Levantar PostgreSQL:
 docker run --name prestige-rewards-db \
   -e POSTGRES_PASSWORD=prestige123 \
   -e POSTGRES_DB=prestigerewards \
-  -p 5432:5432 \
-  -d postgres:15
+  -p 5432:5432 -d postgres:15
 
-# Verificar que está corriendo:
-docker ps
-```
-
-**3. Crear el proyecto Medusa (dentro de WSL2)**
-```bash
-# Importante: trabajar siempre dentro del filesystem de Linux, no en /mnt/c/
-cd ~   # o crear una carpeta: mkdir ~/proyectos && cd ~/proyectos
-
+cd ~   # siempre trabajar en ~, nunca en /mnt/c/
 npx create-medusa-app@latest prestige-rewards-backend
-# Cuando pregunte: elegir "minimal" (sin demo data)
-# Cuando pregunte por la DB string:
-# postgres://postgres:prestige123@localhost:5432/prestigerewards
+# DB string: postgres://postgres:prestige123@localhost:5432/prestigerewards
 
 cd prestige-rewards-backend
+code .        # abre VS Code conectado a WSL
+npm run dev   # http://localhost:9000 · admin en http://localhost:9000/app
 ```
 
-**4. Abrir en VS Code**
-```bash
-code .
-# Esto abre VS Code en Windows pero conectado al proyecto en WSL2
-```
-
-**5. Verificar que funciona**
-```bash
-npm run dev
-# Debe levantar en http://localhost:7001
-# Admin UI en http://localhost:7001/app
-```
-
+---
 
 ### 🍎 macOS
- 
+
 **1 — Node.js:**
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 # Reiniciar terminal:
 nvm install 20 && nvm use 20
 ```
- 
+
 **2 — Docker Desktop:** docker.com/products/docker-desktop (elegir Apple Silicon o Intel).
- 
+
 **3 — PostgreSQL y proyecto:**
 ```bash
 docker run --name prestige-rewards-db \
   -e POSTGRES_PASSWORD=prestige123 \
   -e POSTGRES_DB=prestigerewards \
   -p 5432:5432 -d postgres:15
- 
-npx create-medusa-app@latest prestige-backend
+
+npx create-medusa-app@latest prestige-rewards-backend
 # DB string: postgres://postgres:prestige123@localhost:5432/prestigerewards
- 
-cd prestige-backend
+
+cd prestige-rewards-backend
 npm run dev
 ```
- 
+
 ---
- 
+
 ### 🐧 Linux
- 
+
 **1 — Node.js:**
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
 nvm install 20 && nvm use 20
 ```
- 
+
 **2 — Docker (Ubuntu/Debian):**
 ```bash
 sudo apt-get update && sudo apt-get install -y docker.io
 sudo usermod -aG docker $USER
 # Cerrar sesión y volver a entrar
 ```
- 
+
 **3 — PostgreSQL y proyecto:**
 ```bash
 docker run --name prestige-rewards-db \
   -e POSTGRES_PASSWORD=prestige123 \
   -e POSTGRES_DB=prestigerewards \
   -p 5432:5432 -d postgres:15
- 
+
 npx create-medusa-app@latest prestige-rewards-backend
 # DB string: postgres://postgres:prestige123@localhost:5432/prestigerewards
- 
-cd prestige-backend
+
+cd prestige-rewards-backend
 npm run dev
 ```
- 
----
+
 ---
 
 ## 10. Variables de entorno
 
-Crear archivo `.env` en la raíz del proyecto:
+Archivo `.env` en la raíz del proyecto:
 
 ```env
 # Base de datos
@@ -658,20 +620,21 @@ JWT_SECRET=super-secret-jwt-key-cambiar-en-produccion
 COOKIE_SECRET=super-secret-cookie-key-cambiar-en-produccion
 
 # Stripe
-STRIPE_API_KEY=sk_test_...          ← tu clave secreta de Stripe
-STRIPE_WEBHOOK_SECRET=whsec_...     ← se genera al crear el webhook
+STRIPE_API_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 
 # Email (SendGrid)
 SENDGRID_API_KEY=SG....
 SENDGRID_FROM=noreply@prestigerewards.com
-ADMIN_EMAIL=admin@prestigerewards.com       ← email del admin que recibe los canjes
+ADMIN_EMAIL=admin@prestigerewards.com
 
-# Frontend (para CORS)
+# Frontend (CORS)
 STORE_CORS=http://localhost:3000
-ADMIN_CORS=http://localhost:7001
+ADMIN_CORS=http://localhost:9000
+AUTH_CORS=http://localhost:3000,http://localhost:9000
 ```
 
-> ⚠️ **Nunca subir el .env a git.** Asegurarse de que `.env` esté en `.gitignore`.
+> ⚠️ **Nunca subir el .env a git.** Verificar que esté en `.gitignore`.
 
 ---
 
@@ -681,31 +644,46 @@ ADMIN_CORS=http://localhost:7001
 prestige-rewards-backend/
 ├── src/
 │   ├── modules/
-│   │   ├── goldie/                     ← módulo de puntos y canjes
+│   │   ├── goldie/
 │   │   │   ├── index.ts
 │   │   │   ├── service.ts
 │   │   │   └── models/
 │   │   │       ├── goldie-transaction.ts
 │   │   │       └── redemption-request.ts
-│   │   └── company/                    ← módulo de empresas, agents y employees
+│   │   └── company/
 │   │       ├── index.ts
 │   │       ├── service.ts
 │   │       └── models/
+│   │           ├── category.ts
+│   │           ├── category-x-company.ts
 │   │           ├── company.ts
 │   │           ├── agent.ts
 │   │           └── employee.ts
 │   │
 │   ├── api/
-│   │   ├── admin/                      ← rutas exclusivas del super admin
+│   │   ├── middlewares.ts              ← auth middleware para /admin/*, /agent/*, /employee/*
+│   │   ├── auth/
+│   │   │   └── invite/
+│   │   │       └── route.ts           ← POST /auth/invite (público)
+│   │   ├── admin/
+│   │   │   ├── categories/
 │   │   │   ├── companies/
+│   │   │   │   └── [id]/
+│   │   │   │       ├── toggle/
+│   │   │   │       ├── assign-goldies/
+│   │   │   │       ├── categories/
+│   │   │   │       ├── agents/
+│   │   │   │       └── employees/     ← retorna 403, solo agents crean employees
 │   │   │   ├── transactions/
-│   │   │   ├── employees/
 │   │   │   └── redemptions/
-│   │   ├── agent/                   ← rutas del agente
+│   │   ├── agent/
 │   │   │   ├── company/
 │   │   │   ├── employees/
+│   │   │   │   └── [id]/
+│   │   │   │       ├── toggle/
+│   │   │   │       └── assign-goldies/
 │   │   │   └── transactions/
-│   │   ├── employee/                   ← rutas del empleado
+│   │   ├── employee/
 │   │   │   ├── me/
 │   │   │   ├── products/
 │   │   │   ├── redeem/
@@ -713,25 +691,25 @@ prestige-rewards-backend/
 │   │   └── webhooks/
 │   │       └── stripe/
 │   │
-│   ├── workflows/                      ← lógica de negocio secuencial con rollback
-│   │   ├── assign-goldies-to-company.ts
-│   │   ├── assign-goldies-to-employee.ts
-│   │   ├── initiate-redemption.ts
-│   │   └── confirm-redemption.ts
+│   ├── workflows/
+│   │   ├── accept-invite.ts           ← 7 steps con rollback completo
+│   │   ├── assign-goldies.ts          ← assignGoldiesToCompany + assignGoldiesToEmployee
+│   │   ├── initiate-redemption.ts     ← pendiente
+│   │   └── confirm-redemption.ts      ← pendiente
 │   │
-│   ├── subscribers/                    ← listeners de eventos internos
-│   │   ├── on-redemption-confirmed.ts  ← envía emails post-pago
-│   │   └── on-goldies-assigned-to-employee.ts      ← notifica al empleado que recibió puntos
-│   │       → Dispara con: employee_assignment
-│   │       → Email al empleado: "Recibiste X goldies"
-│   │   └── on-goldies-assigned-by-agent.ts
-  │         → Dispara con: employee_assignment (mismo evento)
-  │         → Busca todos los agentes de la company del empleado
-  │         → Email a cada agente: "Se asignaron X goldies a [nombre empleado]"
+│   ├── subscribers/
+│   │   ├── on-invite-created.ts       ← PENDIENTE: enviar email con link de registro
+│   │   ├── on-redemption-confirmed.ts ← PENDIENTE: emails post-pago
+│   │   └── on-goldies-assigned.ts     ← PENDIENTE: notificar al employee
 │   │
-│   └── admin/                          ← extensiones del panel Medusa Admin
+│   └── admin/
 │       └── widgets/
 │           └── company-goldies-widget.tsx
+│
+├── tests/
+│   └── unit/
+│       └── workflows/
+│           └── assign-goldies.unit.spec.ts
 │
 ├── medusa-config.ts
 ├── .env
@@ -742,64 +720,84 @@ prestige-rewards-backend/
 
 ## 12. Decisiones de diseño
 
-### ¿Por qué `Agent` y `Employee` son tablas separadas y no una sola con `role`?
-Tienen responsabilidades, accesos y datos completamente distintos: el agent/empleado no tiene saldo de goldies, accede a una página diferente, y es creado por el admin (no se registra solo). Mezclarlos en una tabla con un campo `role` crearía columnas nullable innecesarias y haría más difícil razonar sobre permisos. Tablas separadas = código más claro.
+### ¿Por qué `Agent` y `Employee` son tablas separadas?
+Tienen responsabilidades y datos completamente distintos: el agent no tiene saldo de goldies, accede a una página diferente y es invitado por el admin. Mezclarlos con un campo `role` crearía columnas nullable innecesarias. Tablas separadas = código más claro y permisos más fáciles de razonar.
 
-### ¿Por qué el admin crea las cuentas de agent y no se registran solos?
-El agent es un usuario de confianza que administra dinero (goldies) de una empresa. Que el admin los cree manualmente agrega una capa de control. Además simplifica el flujo: no hay formulario de registro, no hay verificación de email, el admin simplemente genera la cuenta y le pasa las credenciales.
+### ¿Por qué sistema de invitaciones en lugar de creación directa con password?
+El admin no debería manejar contraseñas de los usuarios. Con el sistema de invitaciones el admin solo conoce el email, y el usuario completa su propio registro de forma segura. Reutilizamos la tabla `invite` de Medusa extendiendo el campo `metadata` con `{ company_id, role, first_name, last_name }`.
 
-### ¿Por qué goldies son integers y no decimales?
-Simplicidad. Los puntos se asignan en números enteros y se consumen enteros. No hay fracciones de goldie.
+### ¿Por qué solo agents pueden crear employees?
+Los agents son quienes conocen a su equipo. El admin gestiona empresas y agents, pero no debería gestionar el onboarding individual de cada empleado. Separar estas responsabilidades hace el sistema más escalable y reduce el trabajo del admin.
 
-### ¿Por qué el canje no descuenta puntos inmediatamente al iniciar?
-Para evitar situaciones donde el pago de Stripe falla pero ya descontamos los puntos. El flujo correcto es: pago confirmado por webhook → descuento de puntos → notificación. Si el pago falla, el `RedemptionRequest` queda con payment_status = `failed`, el status = `pending` y los goldies nunca se tocaron.
+### ¿Por qué confiamos en el token de invitación para determinar el rol?
+Al aceptar una invitación, el rol del usuario (agent o employee) se determina por el campo `role` dentro del `metadata` del token — no por algo que el usuario pueda manipular en el request. El token es generado y firmado por el servidor, por lo que no puede ser falsificado. Si alguien intercepta un token ajeno y lo usa, igualmente queda registrado con el rol que el token indica, no con el que el atacante desee. La superficie de ataque real es el email — si el email llega a la persona correcta, el registro es seguro.
 
-### ¿Por qué usamos Medusa para el catálogo si no es una tienda tradicional?
-Medusa ya tiene CRUD de productos con imágenes, variantes, categorías y un panel de admin. Reutilizarlo nos ahorra semanas de trabajo. Solo le agregamos `goldie_price` y `category`.
+### ¿Por qué goldies son integers?
+Simplicidad. Los puntos se asignan y consumen en enteros. No hay fracciones de goldie.
+
+### ¿Por qué el canje no descuenta puntos inmediatamente?
+Para evitar descontar puntos cuando el pago de Stripe falla. El flujo correcto es: webhook de Stripe confirma pago → se descuentan los goldies. Si el pago falla, `RedemptionRequest.payment_status = failed` y los goldies no se tocan.
 
 ### ¿Por qué no usamos el sistema de órdenes de Medusa?
-El flujo de canje es demasiado custom (pago simbólico + notificación al admin + gestión manual). Sería más trabajo adaptar las órdenes de Medusa que construir nuestro propio `RedemptionRequest`.
+El canje es demasiado custom (pago simbólico + notificación manual al admin). Construir `RedemptionRequest` propio es más simple que adaptar las órdenes de Medusa.
 
-### ¿Por qué `GoldieTransaction` tiene `amount` negativo para canjes?
-Permite calcular el saldo en cualquier momento sumando todas las transacciones de una entidad: `SUM(amount)`. Negativo = salida de puntos. Positivo = entrada. Esto también hace más fácil construir un historial con una sola query.
+### ¿Por qué `GoldieTransaction.amount` puede ser negativo?
+Permite calcular saldos con `SUM(amount)` sobre todas las transacciones. Simple y eficiente.
 
 ### ¿Por qué algunos campos de dirección son opcionales?
-delivery_state, delivery_phone y delivery_notes son opcionales porque varían según el país. El frontend debe aplicar validación contextual según delivery_country.
+`delivery_state`, `delivery_phone` y `delivery_notes` varían según el país. El frontend debe aplicar validación contextual según `delivery_country`.
+
+### ¿Por qué el middleware verifica el rol en la DB y no en el token?
+Si desactivamos un agent o employee, el efecto debe ser inmediato. Con el rol en el token, un usuario desactivado podría seguir operando hasta que expire el JWT. La query al middleware es por índice en una tabla pequeña — menos de 1ms en producción. Si en el futuro el volumen lo requiere, se puede agregar Redis con TTL corto e invalidación por evento.
 
 ---
 
 ## 13. Roadmap de desarrollo
 
-### Fase 1 — Setup y estructura base (1-2 días)
-- [ ] Instalar WSL2, Node 20, Docker, VS Code
-- [ ] Crear proyecto Medusa 2
-- [ ] Configurar PostgreSQL local con Docker
-- [ ] Crear módulo `company` con modelos `Company`, `Agent`, `Employee`
-- [ ] Crear módulo `goldie` con modelos `GoldieTransaction`, `RedemptionRequest`
+> ⚠️ **Nota sobre estimaciones:** los tiempos son aproximados. Los módulos custom de Medusa, webhooks de Stripe y configuración de emails tienen curva de aprendizaje. No comprometer fechas fijas hasta terminar la Fase 2.
 
-### Fase 2 — Rutas de admin (2-3 días)
-- [ ] CRUD de empresas (`/admin/companies`)
-- [ ] Crear cuentas de agent y employee desde admin
-- [ ] Asignación masiva de goldies a empresa
-- [ ] Ver historial de transacciones y canjes
+### Fase 1 — Setup y estructura base ✅
+- [x] Instalar entorno (WSL2, Node 20, Docker, VS Code)
+- [x] Crear proyecto Medusa 2
+- [x] Configurar PostgreSQL local con Docker
+- [x] Crear módulo `company`: `Category`, `CategoryXCompany`, `Company`, `Agent`, `Employee`
+- [x] Crear módulo `goldie`: `GoldieTransaction`, `RedemptionRequest`
+- [x] Migraciones ejecutadas y tablas verificadas en DB
 
-### Fase 3 — Rutas de agente (1-2 días)
-- [ ] Ver info y saldo de su empresa
-- [ ] Listar, agregar y desactivar empleados
-- [ ] Asignar goldies a empleados individuales
+### Fase 2 — Auth + Rutas de admin + Workflows de asignación ✅ (parcial)
+- [x] Middleware de autenticación por rol (`requireAgent`, `requireEmployee`)
+- [x] Workflow `accept-invite` (7 steps con rollback completo)
+- [x] Workflow `assign-goldies` (assignToCompany + assignToEmployee con rollback)
+- [x] CRUD de categorías (`/admin/categories`)
+- [x] CRUD de empresas con asignación de categorías
+- [x] Sistema de invitaciones para agents (`POST /admin/companies/:id/agents`)
+- [x] Sistema de invitaciones para employees (`POST /agent/employees`)
+- [x] `POST /auth/invite` — aceptar invitación y completar registro
+- [x] Asignación de goldies a empresa y employees
+- [x] Historial de transacciones y canjes (read-only)
+- [ ] Subscriber `on-invite-created` — enviar email con link de registro (pendiente Fase 5)
 
-### Fase 4 — Rutas de empleado + catálogo (2-3 días)
-- [ ] Ver perfil y saldo personal
-- [ ] Catálogo filtrado por categoría de empresa
-- [ ] Flujo de canje con cobro de 1€ (Stripe)
-- [ ] Webhook de Stripe para confirmar pago y descontar goldies
+### Fase 3 — Rutas de agent (2-3 días)
+- [ ] Ver empresa y saldo
+- [ ] Listar, ver detalle, toggle y desasociar employees
+- [ ] Asignar goldies a employees (ruta conectada al workflow ya implementado)
 
-### Fase 5 — Emails (1 día)
-- [ ] Email al empleado: puntos recibidos
-- [ ] Email al admin: nueva solicitud de canje (con todos los datos)
-- [ ] Email al empleado: canje confirmado / cancelado
+### Fase 4 — Rutas de employee + catálogo (3-5 días)
+- [ ] Ver y editar perfil, cambio de contraseña
+- [ ] Catálogo filtrado por `NOT IN` categorías de empresa
+- [ ] Flujo de canje con Stripe Elements
+- [ ] Webhook de Stripe: confirmar pago, descontar goldies
 
-### Fase 6 — Testing y deployment (1-2 días)
+### Fase 5 — Emails (2-3 días)
+- [ ] Subscriber `on-invite-created`: email con link de registro al agent/employee
+- [ ] Email al employee: goldies recibidos
+- [ ] Email al agent: goldies asignados a su empresa
+- [ ] Email al admin: solicitud de canje con datos de entrega
+- [ ] Email al employee: canje recibido / completado / cancelado
+- [ ] Email de confirmación de cambio de contraseña
+
+### Fase 6 — Testing y deployment (2-3 días)
+- [ ] Integration tests para workflows críticos
 - [ ] Variables de entorno de producción
 - [ ] Deploy (a definir con el equipo)
 - [ ] Configurar dominio y CORS

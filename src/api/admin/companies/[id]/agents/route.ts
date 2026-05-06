@@ -1,12 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 
+// crea invites de admins a agents
 export async function POST(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
-  const authReq = req as AuthenticatedMedusaRequest
   const userService = req.scope.resolve(Modules.USER)
 
   const { first_name, last_name, email } = req.body as {
@@ -15,18 +14,18 @@ export async function POST(
     email: string
   }
 
-  // obtener el agent autenticado (inyectado por el middleware)
-  const agent = (authReq as any).agent
+  const expires_at = new Date()
+  expires_at.setHours(expires_at.getHours() + 72) // TODO: ver por que se setea +24hs
 
-  const invite = await userService.createInvites({
+  const invite = await userService.createInvites([{
     email,
     metadata: {
-      company_id: agent.company_id,
-      role: "employee",
+      company_id: req.params.id,
+      role: "agent",
       first_name,
       last_name,
     },
-  })
+  }])
 
   res.json({ invite })
 }
