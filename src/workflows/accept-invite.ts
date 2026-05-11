@@ -215,7 +215,7 @@ const createActorStep = createStep(
 
     if (input.role === "agent") {
       const agent = await companyService.createAgents({
-        user_id: input.customerId,
+        customer_id: input.customerId,
         company_id: input.companyId,
       })
       logger.info(`Agent created: ${agent.id} for company: ${input.companyId}`)
@@ -223,7 +223,7 @@ const createActorStep = createStep(
     }
 
     const employee = await companyService.createEmployees({
-      user_id: input.customerId,
+      customer_id: input.customerId,
       company_id: input.companyId,
     })
     logger.info(`Employee created: ${employee.id} for company: ${input.companyId}`)
