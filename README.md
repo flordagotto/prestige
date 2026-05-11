@@ -788,13 +788,17 @@ Si desactivamos un agent o employee, el efecto debe ser inmediato. Con el rol en
 - [ ] Flujo de canje con Stripe Elements
 - [ ] Webhook de Stripe: confirmar pago, descontar goldies
 
-### Fase 5 — Emails (2-3 días)
+### Fase 5 — Emails, bulks y extras (10-12 días)
 - [ ] Subscriber `on-invite-created`: email con link de registro al agent/employee
 - [ ] Email al employee: goldies recibidos
 - [ ] Email al agent: goldies asignados a su empresa
 - [ ] Email al admin: solicitud de canje con datos de entrega
 - [ ] Email al employee: canje recibido / completado / cancelado
 - [ ] Email de confirmación de cambio de contraseña
+- [ ] Permitir carga masiva de puntos a través de un CSV
+- [ ] Permitir carga masiva de productos a través de un CSV
+- [ ] Permitir carga de productos con su imagen
+- [ ] Permitir carga de marcas con su logo
 
 ### Fase 6 — Testing y deployment (2-3 días)
 - [ ] Integration tests para workflows críticos
