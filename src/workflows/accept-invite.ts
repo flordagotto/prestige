@@ -33,6 +33,7 @@ type CreateCustomerInput = {
   first_name: string
   last_name: string
   email: string
+  company_name: string 
 }
 
 type CreateActorInput = {
@@ -85,7 +86,7 @@ const validateInviteTokenStep = createStep(
       throw new Error("The company associated with this invitation is inactive")
     }
 
-    return new StepResponse({ invite, metadata })
+    return new StepResponse({ invite, metadata, companyName: company.name })
   }
 )
 
@@ -166,6 +167,7 @@ const createCustomerStep = createStep(
       first_name: input.first_name,
       last_name: input.last_name,
       email: input.email,
+      company_name: input.company_name, 
     })
 
     logger.info(`Customer created: ${customer.id}`)
@@ -291,7 +293,7 @@ const acceptInviteStep = createStep(
 export const acceptInviteWorkflow = createWorkflow(
   "accept-invite",
   (input: AcceptInviteWorkflowInput) => {
-    const { invite, metadata } = validateInviteTokenStep(input)
+    const { invite, metadata, companyName } = validateInviteTokenStep(input)
     validatePasswordStep(input)
 
     const { authIdentity } = registerAuthIdentityStep({
@@ -307,6 +309,7 @@ export const acceptInviteWorkflow = createWorkflow(
       first_name: metadata.first_name,
       last_name: metadata.last_name,
       email: invite.email,
+      company_name: companyName,
     })
 
     linkAuthIdentityStep({
