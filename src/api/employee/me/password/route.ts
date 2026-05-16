@@ -3,10 +3,13 @@ import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { validatePasswordComplexity } from "../../../../utils/password"
 
+// TODO: pensar seguridad
+
 export async function PUT(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
+  const logger = req.scope.resolve("logger")
   const authReq = req as AuthenticatedMedusaRequest
   const authService = req.scope.resolve(Modules.AUTH)
 
@@ -20,6 +23,8 @@ export async function PUT(
   if (passwordError) {
     return res.status(400).json({ message: passwordError })
   }
+
+  logger.debug("New password validated");
 
   const { success: currentPasswordValid } = await authService.authenticate(
     "emailpass",
