@@ -35,10 +35,10 @@ export async function PUT(
 
   const employee = (authReq as any).employee
 
-  const { first_name, last_name, email, phone } = req.body as {
+  const { first_name, last_name, phone } = req.body as {
     first_name?: string
     last_name?: string
-    email?: string
+    //email?: string // no se puede cambiar el email, al menos no desde aca
     phone?: string
   }
 
@@ -47,7 +47,6 @@ export async function PUT(
     {
         first_name,
         last_name,
-        email,
         phone,
     }
   )
