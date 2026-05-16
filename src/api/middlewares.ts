@@ -19,7 +19,7 @@ const requireAgent = async (
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
   const agents = await companyService.listAgents({
-    user_id: authReq.auth_context.actor_id,
+    customer_id: authReq.auth_context.actor_id,
   })
 
   if (!agents.length) {
@@ -46,7 +46,7 @@ const requireEmployee = async (
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
   const employees = await companyService.listEmployees({
-    user_id: authReq.auth_context.actor_id,
+    customer_id: authReq.auth_context.actor_id,
   })
 
   if (!employees.length) {

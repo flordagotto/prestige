@@ -54,6 +54,7 @@ const validateInviteTokenStep = createStep(
   "validate-invite-token",
   async (input: AcceptInviteInput, { container }) => {
     const userService = container.resolve(Modules.USER)
+    const companyService: CompanyModuleService = container.resolve(COMPANY_MODULE)
 
     let invite
     try {
@@ -70,6 +71,18 @@ const validateInviteTokenStep = createStep(
 
     if (!metadata?.company_id || !metadata?.role) {
       throw new Error("Invalid invitation: required fields missing")
+    }
+
+    // verify company exists and is active
+    let company
+    try {
+      company = await companyService.retrieveCompany(metadata.company_id)
+    } catch {
+      throw new Error("The company associated with this invitation no longer exists")
+    }
+
+    if (company.status !== "active") {
+      throw new Error("The company associated with this invitation is inactive")
     }
 
     return new StepResponse({ invite, metadata })
@@ -215,7 +228,7 @@ const createActorStep = createStep(
 
     if (input.role === "agent") {
       const agent = await companyService.createAgents({
-        user_id: input.customerId,
+        customer_id: input.customerId,
         company_id: input.companyId,
       })
       logger.info(`Agent created: ${agent.id} for company: ${input.companyId}`)
@@ -223,7 +236,7 @@ const createActorStep = createStep(
     }
 
     const employee = await companyService.createEmployees({
-      user_id: input.customerId,
+      customer_id: input.customerId,
       company_id: input.companyId,
     })
     logger.info(`Employee created: ${employee.id} for company: ${input.companyId}`)
