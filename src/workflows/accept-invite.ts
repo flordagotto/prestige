@@ -7,6 +7,7 @@ import {
 import { Modules } from "@medusajs/framework/utils"
 import CompanyModuleService from "../modules/company/service"
 import { COMPANY_MODULE } from "../modules/company"
+import { validatePasswordComplexity } from "../utils/password"
 
 type AcceptInviteInput = {
   token: string
@@ -99,21 +100,12 @@ const validatePasswordStep = createStep(
 
     const logger = container.resolve("logger")
 
-    if (password.length < 8) {
-      logger.warn("Password too short")
-      throw new Error("Password must contain 8 characters")
+    const passwordError = validatePasswordComplexity(password)
+    if (passwordError) {
+      logger.warn(`Password validation failed: ${passwordError}`)
+      throw new Error(passwordError)
     }
-
-    if (!/[A-Z]/.test(password)) {
-      logger.warn("Password does not contain any upper characters")
-      throw new Error("Password must contain at least one upper character")
-    }
-
-    if (!/[0-9]/.test(password)) {
-      logger.warn("Password does not contain any numbers")
-      throw new Error("Password must contain at least one number")
-    }
-
+    
     logger.info("Password validated")
     return new StepResponse({ valid: true })
   }
