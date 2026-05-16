@@ -40,3 +40,32 @@ export async function POST(
 
   res.json({ invite })
 }
+
+export async function GET(
+  req: MedusaRequest,
+  res: MedusaResponse
+) {
+  const authReq = req as AuthenticatedMedusaRequest
+  const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
+  const customerService = req.scope.resolve(Modules.CUSTOMER)
+
+  const agent = (authReq as any).agent
+
+  const employees = await companyService.listEmployees({
+    company_id: agent.company_id,
+  })
+
+  const employeesWithProfile = await Promise.all(
+    employees.map(async (employee) => {
+      const customer = await customerService.retrieveCustomer(employee.customer_id)
+      return {
+        ...employee,
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        email: customer.email,
+      }
+    })
+  )
+
+  res.json({ employees: employeesWithProfile })   
+}
