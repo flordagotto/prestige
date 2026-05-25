@@ -66,10 +66,12 @@ export default defineMiddlewares({
   routes: [
     {
       matcher: "/admin/*",
+      method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       middlewares: [authenticate("user", ["session", "bearer"])],
     },
     {
       matcher: "/agent/*",
+      method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       middlewares: [
         authenticate("customer", ["session", "bearer"]),
         requireAgent,
@@ -77,6 +79,7 @@ export default defineMiddlewares({
     },
     {
       matcher: "/employee/*",
+      method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       middlewares: [
         authenticate("customer", ["session", "bearer"]),
         requireEmployee,
