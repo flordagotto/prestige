@@ -3,6 +3,7 @@ import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { COMPANY_MODULE } from "../../../modules/company"
 import CompanyModuleService from "../../../modules/company/service"
+import { UpdateEmployeeBodyType } from "./validators"
 
 export async function GET(
   req: MedusaRequest,
@@ -27,7 +28,7 @@ export async function GET(
 }
 
 export async function PUT(
-  req: MedusaRequest,
+  req: MedusaRequest<UpdateEmployeeBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest
@@ -35,12 +36,7 @@ export async function PUT(
 
   const employee = (authReq as any).employee
 
-  const { first_name, last_name, phone } = req.body as {
-    first_name?: string
-    last_name?: string
-    //email?: string // no se puede cambiar el email, al menos no desde aca
-    phone?: string
-  }
+  const { first_name, last_name, phone} = req.validatedBody
 
   const updated = await customerService.updateCustomers(
     employee.customer_id,

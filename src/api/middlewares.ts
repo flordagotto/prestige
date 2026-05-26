@@ -141,6 +141,11 @@ export default defineMiddlewares({
       method: "PUT",
       middlewares: withBodyValidation(employeeMiddlewares, ChangePasswordBody)
     },
+    {
+      matcher: "/employee/me",
+      method: "PUT",
+      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeBody)
+    },
   ],
 })
 
