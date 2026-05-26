@@ -10,7 +10,6 @@ import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../modules/company"
 import CompanyModuleService from "../modules/company/service"
 import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
-import { ZodSchema } from "@medusajs/framework/zod"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
 import { AddProductCategoryBody } from "./admin/categories/validators"
 import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
@@ -149,5 +148,3 @@ export default defineMiddlewares({
   ],
 })
 
-// TODO: La única diferencia con lo que hablábamos es que si un usuario es agent de una empresa y también employee de otra, el middleware actual tomaría el primero que encuentre. Por ahora está bien así.
-// controlar q esto no pueda suceder
