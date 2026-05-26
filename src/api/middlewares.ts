@@ -14,6 +14,8 @@ import { ZodSchema } from "@medusajs/framework/zod"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
 import { AddProductCategoryBody } from "./admin/categories/validators"
 import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
+import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
+import { InviteEmployeeBody } from "./agent/employees/validators"
 
 type ValidBodySchema =
   | ZodObject<any, any, ZodTypeAny>
@@ -119,9 +121,19 @@ export default defineMiddlewares({
       middlewares: withBodyValidation(adminMiddlewares, UpdateCompanyBody)
     },
     {
+      matcher: "/admin/companies/:id/agents",
+      method: "POST",
+      middlewares: withBodyValidation(adminMiddlewares, InviteAgentBody)
+    },
+    {
       matcher: "/agent/employees/:id",
       method: "PATCH",
       middlewares: withBodyValidation(agentMiddlewares, UpdateEmployeeBody)
+    },
+    {
+      matcher: "/agent/employees",
+      method: "POST",
+      middlewares: withBodyValidation(agentMiddlewares, InviteEmployeeBody)
     },
   ],
 })
