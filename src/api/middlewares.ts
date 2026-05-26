@@ -12,6 +12,7 @@ import CompanyModuleService from "../modules/company/service"
 import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
 import { ZodSchema } from "@medusajs/framework/zod"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
+import { AddProductCategoryBody } from "./admin/categories/validators"
 
 const requireAgent = async (
   req: MedusaRequest,
@@ -103,14 +104,19 @@ export default defineMiddlewares({
       middlewares: employeeMiddlewares,
     },
     {
-      matcher: "/agent/employees/:id",
-      method: "PATCH",
-      middlewares: withBodyValidation(agentMiddlewares, UpdateEmployeeBody)
+      matcher: "/admin/categories/:id",
+      method: "POST",
+      middlewares: withBodyValidation(adminMiddlewares, AddProductCategoryBody)
     },
     {
       matcher: "/admin/companies/:id",
       method: "PATCH",
-      middlewares: withBodyValidation(agentMiddlewares, UpdateCompanyBody)
+      middlewares: withBodyValidation(adminMiddlewares, UpdateCompanyBody)
+    },
+    {
+      matcher: "/agent/employees/:id",
+      method: "PATCH",
+      middlewares: withBodyValidation(agentMiddlewares, UpdateEmployeeBody)
     },
   ],
 })
