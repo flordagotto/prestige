@@ -16,6 +16,7 @@ import { AddProductCategoryBody } from "./admin/categories/validators"
 import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
 import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
 import { InviteEmployeeBody } from "./agent/employees/validators"
+import { ChangePasswordBody } from "./employee/me/password/validators"
 
 type ValidBodySchema =
   | ZodObject<any, any, ZodTypeAny>
@@ -134,6 +135,11 @@ export default defineMiddlewares({
       matcher: "/agent/employees",
       method: "POST",
       middlewares: withBodyValidation(agentMiddlewares, InviteEmployeeBody)
+    },
+    {
+      matcher: "/employee/me/password",
+      method: "PUT",
+      middlewares: withBodyValidation(employeeMiddlewares, ChangePasswordBody)
     },
   ],
 })

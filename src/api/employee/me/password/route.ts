@@ -2,9 +2,10 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { validatePasswordComplexity } from "../../../../utils/password"
+import { ChangePasswordBodyType } from "./validators"
 
 export async function PUT(
-  req: MedusaRequest,
+  req: MedusaRequest<ChangePasswordBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest
@@ -14,14 +15,7 @@ export async function PUT(
 
   const employee = (authReq as any).employee
 
-  const { new_password } = req.body as {
-    new_password: string
-  }
-
-  const passwordError = validatePasswordComplexity(new_password)
-  if (passwordError) {
-    return res.status(400).json({ message: passwordError })
-  }
+  const { new_password } = req.validatedBody
 
   const customer = await customerService.retrieveCustomer(employee.customer_id)
 

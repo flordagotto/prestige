@@ -5,7 +5,7 @@ export async function POST(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
-  const { amount, note } = req.body as { amount: number; note?: string }
+  const { amount, note } = req.body as { amount: number; note?: string } // TODO: cuando refactoricemos esto, tambine agreguemos un validator
 
   const { result, errors } = await assignGoldiesToCompanyWorkflow(req.scope).run({
     input: {
