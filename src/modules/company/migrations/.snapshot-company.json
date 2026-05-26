@@ -516,6 +516,24 @@
           ],
           "mappedType": "enum"
         },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
         "company_id": {
           "name": "company_id",
           "type": "text",

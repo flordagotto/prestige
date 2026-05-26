@@ -3,6 +3,7 @@ import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../../../../modules/company"
 import CompanyModuleService from "../../../../modules/company/service"
 import { Modules } from "@medusajs/framework/utils"
+import { UpdateEmployeeBodyType } from "./validators"
 
 export async function GET(
   req: MedusaRequest,
@@ -50,4 +51,44 @@ export async function DELETE(
   await companyService.deleteEmployees(req.params.id)
 
   res.json({ success: true, id: req.params.id })
+}
+
+export async function PATCH(
+  req: MedusaRequest<UpdateEmployeeBodyType>,
+  res: MedusaResponse
+) {
+  const authReq = req as AuthenticatedMedusaRequest
+  const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
+
+  const agent = (authReq as any).agent
+
+  const employee = await companyService.retrieveEmployee(req.params.id)
+
+  if (employee.company_id !== agent.company_id) {
+    return res.status(403).json({ message: "Forbidden: employee does not belong to your company" })
+  }
+
+  const { active, role, department } = req.validatedBody
+
+  const updateData: any = {
+    id: req.params.id,
+  }
+
+  if (active !== undefined) {
+    updateData.status = active ? "active" : "inactive"
+  }
+
+  if (role !== undefined) {
+    updateData.role = role
+  }
+
+  if (department !== undefined) {
+    updateData.department = department
+  }
+
+  const updated = await companyService.updateEmployees(updateData)
+
+  res.json({
+    employee: updated,
+  })
 }

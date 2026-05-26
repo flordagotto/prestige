@@ -19,9 +19,14 @@ export async function PUT(
 ) {
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
+  const activate = req.body as { active: boolean | null }
+
+  if(activate == null)
+    return;
+
   const company = await companyService.updateCompanies({
     id: req.params.id,
-    ...req.body as any,
+    status: activate ? "active" : "inactive"
   })
 
   res.json({ company })
