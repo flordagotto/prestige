@@ -13,6 +13,11 @@ import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
 import { ZodSchema } from "@medusajs/framework/zod"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
 import { AddProductCategoryBody } from "./admin/categories/validators"
+import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
+
+type ValidBodySchema =
+  | ZodObject<any, any, ZodTypeAny>
+  | ZodEffects<any, any, any>
 
 const requireAgent = async (
   req: MedusaRequest,
@@ -81,7 +86,7 @@ const adminMiddlewares = [
   authenticate("user", ["session", "bearer"])
 ]
 
-const withBodyValidation = (base: any[], schema: ZodSchema) => [
+const withBodyValidation = (base: any[], schema: ValidBodySchema) => [
   ...base,
   validateAndTransformBody(schema),
 ]
