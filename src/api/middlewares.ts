@@ -4,10 +4,23 @@ import {
   MedusaNextFunction,
   MedusaRequest,
   MedusaResponse,
+  validateAndTransformBody,
 } from "@medusajs/framework/http"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../modules/company"
 import CompanyModuleService from "../modules/company/service"
+import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
+import { ZodSchema } from "@medusajs/framework/zod"
+import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
+import { AddProductCategoryBody } from "./admin/categories/validators"
+import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
+import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
+import { InviteEmployeeBody } from "./agent/employees/validators"
+import { ChangePasswordBody } from "./employee/me/password/validators"
+
+type ValidBodySchema =
+  | ZodObject<any, any, ZodTypeAny>
+  | ZodEffects<any, any, any>
 
 const requireAgent = async (
   req: MedusaRequest,
@@ -62,28 +75,76 @@ const requireEmployee = async (
   next()
 }
 
+const agentMiddlewares = [
+  authenticate("customer", ["session", "bearer"]),
+  requireAgent,
+]
+
+const employeeMiddlewares = [
+  authenticate("customer", ["session", "bearer"]),
+  requireEmployee,
+]
+
+const adminMiddlewares = [
+  authenticate("user", ["session", "bearer"])
+]
+
+const withBodyValidation = (base: any[], schema: ValidBodySchema) => [
+  ...base,
+  validateAndTransformBody(schema),
+]
+
 export default defineMiddlewares({
   routes: [
     {
       matcher: "/admin/*",
       method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      middlewares: [authenticate("user", ["session", "bearer"])],
+      middlewares: adminMiddlewares,
     },
     {
       matcher: "/agent/*",
       method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      middlewares: [
-        authenticate("customer", ["session", "bearer"]),
-        requireAgent,
-      ],
+      middlewares: agentMiddlewares,
     },
     {
       matcher: "/employee/*",
       method: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      middlewares: [
-        authenticate("customer", ["session", "bearer"]),
-        requireEmployee,
-      ],
+      middlewares: employeeMiddlewares,
+    },
+    {
+      matcher: "/admin/categories/:id",
+      method: "POST",
+      middlewares: withBodyValidation(adminMiddlewares, AddProductCategoryBody)
+    },
+    {
+      matcher: "/admin/companies/:id",
+      method: "PATCH",
+      middlewares: withBodyValidation(adminMiddlewares, UpdateCompanyBody)
+    },
+    {
+      matcher: "/admin/companies/:id/agents",
+      method: "POST",
+      middlewares: withBodyValidation(adminMiddlewares, InviteAgentBody)
+    },
+    {
+      matcher: "/agent/employees/:id",
+      method: "PATCH",
+      middlewares: withBodyValidation(agentMiddlewares, UpdateEmployeeBody)
+    },
+    {
+      matcher: "/agent/employees",
+      method: "POST",
+      middlewares: withBodyValidation(agentMiddlewares, InviteEmployeeBody)
+    },
+    {
+      matcher: "/employee/me/password",
+      method: "PUT",
+      middlewares: withBodyValidation(employeeMiddlewares, ChangePasswordBody)
+    },
+    {
+      matcher: "/employee/me",
+      method: "PUT",
+      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeBody)
     },
   ],
 })

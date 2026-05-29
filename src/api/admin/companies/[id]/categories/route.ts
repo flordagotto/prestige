@@ -29,6 +29,6 @@ export async function PUT(
       })
     )
   )
-  // ver si conviene pisarlas asi o hacer dos endpoints para agregar y quitar 
+  // TODO: ver si conviene pisarlas asi o hacer dos endpoints para agregar y quitar 
   res.json({ categories })
 }

@@ -9,6 +9,7 @@ export async function POST(
 
   // TODO: cuando esté el middleware para auth, obtener company_id del agent autenticado
   // por ahora lo recibimos en el body para poder probar
+  // TODO: cuando refactoricemos, agreguemos validators
   const { company_id } = req.body as { company_id: string; amount: number }
 
   const { result, errors } = await assignGoldiesToEmployeeWorkflow(req.scope).run({

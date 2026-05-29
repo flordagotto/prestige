@@ -3,20 +3,17 @@ import { Modules } from "@medusajs/framework/utils"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../../../modules/company"
 import CompanyModuleService from "../../../modules/company/service"
+import { InviteEmployeeBodyType } from "./validators"
 
 export async function POST(
-  req: MedusaRequest,
+  req: MedusaRequest<InviteEmployeeBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest
   const userService = req.scope.resolve(Modules.USER)
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
-  const { first_name, last_name, email } = req.body as {
-    first_name: string
-    last_name: string
-    email: string
-  }
+  const { first_name, last_name, email, role, department } = req.validatedBody
 
   // obtener el agent autenticado (inyectado por el middleware)
   const agent = (authReq as any).agent
@@ -35,6 +32,8 @@ export async function POST(
       role: "employee",
       first_name,
       last_name,
+      employee_role: role,
+      employee_department: department
     },
   })
 

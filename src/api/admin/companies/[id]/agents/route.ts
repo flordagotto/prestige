@@ -2,20 +2,21 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import CompanyModuleService from "../../../../../modules/company/service"
 import { COMPANY_MODULE } from "../../../../../modules/company"
+import { InviteAgentBodyType } from "./validators"
 
 // crea invites de admins a agents
 export async function POST(
-  req: MedusaRequest,
+  req: MedusaRequest<InviteAgentBodyType>,
   res: MedusaResponse
 ) {
   const userService = req.scope.resolve(Modules.USER)
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
-  const { first_name, last_name, email } = req.body as {
-    first_name: string
-    last_name: string
-    email: string
-  }
+  const {
+    first_name,
+    last_name,
+    email
+  } = req.validatedBody
 
   // verify company exists and is active
   let company

@@ -6,6 +6,8 @@ const Employee = model.define("employee", {
   customer_id:    model.text(),
   goldie_balance: model.number().default(0),
   status:         model.enum(["active", "inactive"]).default("active"),
+  department:     model.text().nullable(),
+  role:           model.text().nullable(),
   company:        model.belongsTo(() => Company, { mappedBy: "employees" }),
 })
 
