@@ -1,6 +1,6 @@
 import { z } from "@medusajs/framework/zod"
 
-export const UpdateAgentBody = z.object({
+export const UpdateMyAgentProfileBody = z.object({
   first_name: z
     .string()
     .trim()
@@ -22,4 +22,4 @@ export const UpdateAgentBody = z.object({
     ),
 })
 
-export type UpdateAgentBodyType = z.infer<typeof UpdateAgentBody>
+export type UpdateMyAgentProfileBodyType = z.infer<typeof UpdateMyAgentProfileBody>

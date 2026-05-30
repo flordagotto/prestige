@@ -1,7 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { UpdateAgentBodyType } from "./validators"
+import { UpdateMyAgentProfileBodyType } from "./validators"
 
 function buildAgentProfile(agent: Record<string, unknown>, customer: Record<string, any>) {
   return {
@@ -30,7 +30,7 @@ export async function GET(
 }
 
 export async function PUT(
-  req: MedusaRequest<UpdateAgentBodyType>,
+  req: MedusaRequest<UpdateMyAgentProfileBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest

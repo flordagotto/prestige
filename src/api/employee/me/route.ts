@@ -1,7 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { UpdateEmployeeBodyType } from "./validators"
+import { UpdateMyEmployeeProfileBodyType } from "./validators"
 
 function buildEmployeeProfile(employee: Record<string, unknown>, customer: Record<string, any>) {
   return {
@@ -30,7 +30,7 @@ export async function GET(
 }
 
 export async function PUT(
-  req: MedusaRequest<UpdateEmployeeBodyType>,
+  req: MedusaRequest<UpdateMyEmployeeProfileBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest

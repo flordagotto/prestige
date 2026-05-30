@@ -1,6 +1,6 @@
 import { z } from "@medusajs/framework/zod"
 
-export const UpdateEmployeeBody = z.object({
+export const UpdateMyEmployeeProfileBody = z.object({
    first_name: z
     .string()
     .trim()
@@ -22,5 +22,5 @@ export const UpdateEmployeeBody = z.object({
     )
 })
 
-export type UpdateEmployeeBodyType =
-  z.infer<typeof UpdateEmployeeBody>
+export type UpdateMyEmployeeProfileBodyType =
+  z.infer<typeof UpdateMyEmployeeProfileBody>
