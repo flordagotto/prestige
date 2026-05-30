@@ -62,6 +62,7 @@ export async function GET(
         first_name: customer.first_name,
         last_name: customer.last_name,
         email: customer.email,
+        phone: customer.phone,
       }
     })
   )
