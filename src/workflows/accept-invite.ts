@@ -19,6 +19,8 @@ type InviteMetadata = {
   role: "agent" | "employee"
   first_name: string
   last_name: string
+  employee_role?: string
+  employee_department?: string
 }
 
 type RegisterAuthInput = {
@@ -41,6 +43,8 @@ type CreateActorInput = {
   customerId: string
   companyId: string
   role: "agent" | "employee"
+  employeeRole?: string
+  employeeDepartment?: string
 }
 
 type AcceptInviteWorkflowInput = AcceptInviteInput & {
@@ -232,6 +236,8 @@ const createActorStep = createStep(
     const employee = await companyService.createEmployees({
       customer_id: input.customerId,
       company_id: input.companyId,
+      role: input.employeeRole ?? null,
+      department: input.employeeDepartment ?? null,
     })
     logger.info(`Employee created: ${employee.id} for company: ${input.companyId}`)
     return new StepResponse({ actor: employee }, { id: employee.id, role: "employee" as const })
@@ -313,6 +319,8 @@ export const acceptInviteWorkflow = createWorkflow(
       customerId: customer.id,
       companyId: metadata.company_id,
       role: metadata.role,
+      employeeRole: metadata.employee_role,
+      employeeDepartment: metadata.employee_department,
     })
 
     acceptInviteStep(invite.id)

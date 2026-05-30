@@ -1,14 +1,13 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { COMPANY_MODULE } from "../../../../modules/company"
-import CompanyModuleService from "../../../../modules/company/service"
+import { deleteProductCategoriesWorkflow } from "@medusajs/medusa/core-flows"
 
 export async function DELETE(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
-  const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
+  await deleteProductCategoriesWorkflow(req.scope).run({
+    input: [req.params.id],
+  })
 
-  await companyService.deleteCategories(req.params.id)
-
-  res.json({ success: true })
+  res.json({ success: true, id: req.params.id })
 }
