@@ -12,5 +12,19 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
-  }
+  },
+  modules: [
+    {
+      resolve: "./src/modules/company",
+      options: {
+        databaseUrl: process.env.DATABASE_URL,
+      },
+    },
+    {
+      resolve: "./src/modules/goldie",
+      options: {
+        databaseUrl: process.env.DATABASE_URL,
+      },
+    },
+  ],
 })

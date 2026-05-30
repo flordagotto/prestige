@@ -1,0 +1,14 @@
+import { model } from "@medusajs/framework/utils"
+import Company from "./company"
+
+const Employee = model.define("employee", {
+  id:             model.id().primaryKey(),
+  customer_id:    model.text(),
+  goldie_balance: model.number().default(0),
+  status:         model.enum(["active", "inactive"]).default("active"),
+  department:     model.text().nullable(),
+  role:           model.text().nullable(),
+  company:        model.belongsTo(() => Company, { mappedBy: "employees" }),
+})
+
+export default Employee

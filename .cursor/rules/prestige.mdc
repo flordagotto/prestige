@@ -1,0 +1,27 @@
+---
+description: Prestige Rewards backend conventions and project context
+globs: src/**/*
+alwaysApply: false
+---
+
+# Prestige Rewards Backend
+
+Read `docs/CONTEXT.md` for full project context before non-trivial changes.
+
+## Stack
+- Medusa 2, TypeScript, PostgreSQL, WSL2 (run all commands from Ubuntu, not PowerShell)
+- Path: `~/prestige-rewards-backend`
+
+## Conventions
+- Admin = Medusa `user` actor. Agent/Employee = Medusa `customer` actor with row in `agent`/`employee` table via `customer_id`.
+- Categories = Medusa `ProductCategory` linked to `Company` via module link (`src/links/product-category-company.ts`). No custom category tables.
+- After link changes: `npx medusa db:migrate`
+- Tests: `npm run test:unit` (files in `src/__tests__/`)
+
+## Do not touch without explicit request
+- GoldieOrder model / redeem workflow / Stripe (teammate's branch)
+- README unless syncing docs
+
+## Code style
+- Match existing route/workflow patterns
+- Minimal diffs, no over-engineering
