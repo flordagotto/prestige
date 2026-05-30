@@ -5,6 +5,16 @@ import CompanyModuleService from "../../../../modules/company/service"
 import { Modules } from "@medusajs/framework/utils"
 import { UpdateEmployeeBodyType } from "./validators"
 
+function buildEmployeeProfile(employee: Record<string, unknown>, customer: Record<string, any>) {
+  return {
+    ...employee,
+    first_name: customer.first_name,
+    last_name: customer.last_name,
+    email: customer.email,
+    phone: customer.phone,
+  }
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse
@@ -17,19 +27,16 @@ export async function GET(
 
   const employee = await companyService.retrieveEmployee(req.params.id)
 
-  // verify the employee belongs to the agent's company
   if (employee.company_id !== agent.company_id) {
-    return res.status(403).json({ message: "Forbidden: employee does not belong to your company" })
+    return res.status(403).json(
+      { message: "Forbidden: employee does not belong to your company" }
+    )
   }
- const customer = await customerService.retrieveCustomer(employee.customer_id)
+
+  const customer = await customerService.retrieveCustomer(employee.customer_id)
 
   res.json({
-    employee: {
-      ...employee,
-      first_name: customer.first_name,
-      last_name: customer.last_name,
-      email: customer.email,
-    }
+    employee: buildEmployeeProfile(employee, customer),
   })
 }
 

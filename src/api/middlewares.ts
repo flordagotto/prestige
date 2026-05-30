@@ -16,6 +16,8 @@ import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
 import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
 import { InviteEmployeeBody } from "./agent/employees/validators"
 import { ChangePasswordBody } from "./employee/me/password/validators"
+import { UpdateMyEmployeeProfileBody } from "./employee/me/validators"
+import { UpdateMyAgentProfileBody } from "./agent/me/validators"
 
 type ValidBodySchema =
   | ZodObject<any, any, ZodTypeAny>
@@ -143,7 +145,17 @@ export default defineMiddlewares({
     {
       matcher: "/employee/me",
       method: "PUT",
-      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeBody)
+      middlewares: withBodyValidation(employeeMiddlewares, UpdateMyEmployeeProfileBody)
+    },
+    {
+      matcher: "/agent/me",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, UpdateMyAgentProfileBody)
+    },
+    {
+      matcher: "/agent/me/password",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, ChangePasswordBody)
     },
   ],
 })
