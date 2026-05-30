@@ -44,8 +44,16 @@ export async function DELETE(
 
   const employee = await companyService.retrieveEmployee(req.params.id)
 
+  if (!employee) {
+    return res.status(404).json(
+      { message: "Not found: employee does not exist" }
+    )
+  }
+
   if (employee.company_id !== agent.company_id) {
-    return res.status(403).json({ message: "Forbidden: employee does not belong to your company" })
+    return res.status(403).json(
+      { message: "Forbidden: employee does not belong to your company" }
+    )
   }
 
   await companyService.deleteEmployees(req.params.id)
