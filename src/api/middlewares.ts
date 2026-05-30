@@ -9,13 +9,15 @@ import {
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../modules/company"
 import CompanyModuleService from "../modules/company/service"
-import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
+import { UpdateEmployeeBody as PatchAgentEmployeeBody } from "./agent/employees/[id]/validators"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
 import { AddProductCategoryBody } from "./admin/categories/validators"
 import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
 import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
 import { InviteEmployeeBody } from "./agent/employees/validators"
 import { ChangePasswordBody } from "./employee/me/password/validators"
+import { UpdateEmployeeBody as UpdateEmployeeMeBody } from "./employee/me/validators"
+import { UpdateAgentBody } from "./agent/me/validators"
 
 type ValidBodySchema =
   | ZodObject<any, any, ZodTypeAny>
@@ -128,7 +130,7 @@ export default defineMiddlewares({
     {
       matcher: "/agent/employees/:id",
       method: "PATCH",
-      middlewares: withBodyValidation(agentMiddlewares, UpdateEmployeeBody)
+      middlewares: withBodyValidation(agentMiddlewares, PatchAgentEmployeeBody)
     },
     {
       matcher: "/agent/employees",
@@ -143,7 +145,17 @@ export default defineMiddlewares({
     {
       matcher: "/employee/me",
       method: "PUT",
-      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeBody)
+      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeMeBody)
+    },
+    {
+      matcher: "/agent/me",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, UpdateAgentBody)
+    },
+    {
+      matcher: "/agent/me/password",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, ChangePasswordBody)
     },
   ],
 })
