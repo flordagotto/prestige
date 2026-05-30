@@ -182,8 +182,8 @@
           "nullable": false,
           "mappedType": "text"
         },
-        "total_points_cost": {
-          "name": "total_points_cost",
+        "total_goldies_cost": {
+          "name": "total_goldies_cost",
           "type": "integer",
           "unsigned": false,
           "autoincrement": false,
@@ -271,6 +271,87 @@
           "updateRule": "cascade"
         }
       },
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "goldies_cost": {
+          "name": "goldies_cost",
+          "type": "integer",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "0",
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 6,
+          "mappedType": "datetime"
+        }
+      },
+      "name": "variant_goldies",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "IDX_variant_goldies_deleted_at",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_variant_goldies_deleted_at\" ON \"variant_goldies\" (\"deleted_at\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "variant_goldies_pkey",
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
       "nativeEnums": {}
     }
   ],
