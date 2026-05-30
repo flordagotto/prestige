@@ -6,7 +6,7 @@ const GoldieOrder = model.define("goldie_order", {
   medusa_order_id:   model.text(),
   employee_id:       model.text(),
   transaction:       model.belongsTo(() => GoldieTransaction, { mappedBy: "order" }),
-  total_points_cost: model.number(),
+  total_goldies_cost: model.number(),
 })
 
 export default GoldieOrder
