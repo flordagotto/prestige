@@ -5,6 +5,10 @@ import {
 } from "@medusajs/framework/utils"
 import { COMPANY_MODULE } from "../../../../../modules/company"
 import CompanyModuleService from "../../../../../modules/company/service"
+import {
+  listCompanyProductCategories,
+  listCompanyProductCategoryIds,
+} from "../../../../../utils/company-product-categories"
 
 type SetCompanyCategoriesBody = {
   category_ids: string[]
@@ -15,17 +19,12 @@ export async function GET(
   res: MedusaResponse
 ) {
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   await companyService.retrieveCompany(req.params.id)
 
-  const { data } = await query.graph({
-    entity: "company",
-    fields: ["id", "product_categories.id", "product_categories.name", "product_categories.handle"],
-    filters: { id: req.params.id },
-  })
+  const categories = await listCompanyProductCategories(req.scope, req.params.id)
 
-  res.json({ categories: data[0]?.product_categories ?? [] })
+  res.json({ categories })
 }
 
 export async function PUT(
@@ -34,7 +33,6 @@ export async function PUT(
 ) {
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
   const link = req.scope.resolve(ContainerRegistrationKeys.LINK)
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   const { category_ids } = req.body as SetCompanyCategoriesBody
 
@@ -44,14 +42,7 @@ export async function PUT(
 
   await companyService.retrieveCompany(req.params.id)
 
-  const { data } = await query.graph({
-    entity: "company",
-    fields: ["id", "product_categories.id"],
-    filters: { id: req.params.id },
-  })
-
-  const existingIds: string[] =
-    data[0]?.product_categories?.map((category: { id: string }) => category.id) ?? []
+  const existingIds = await listCompanyProductCategoryIds(req.scope, req.params.id)
 
   const toRemove = existingIds.filter((id) => !category_ids.includes(id))
   const toAdd = category_ids.filter((id) => !existingIds.includes(id))
@@ -78,11 +69,7 @@ export async function PUT(
     })
   }
 
-  const { data: updated } = await query.graph({
-    entity: "company",
-    fields: ["id", "product_categories.id", "product_categories.name", "product_categories.handle"],
-    filters: { id: req.params.id },
-  })
+  const categories = await listCompanyProductCategories(req.scope, req.params.id)
 
-  res.json({ categories: updated[0]?.product_categories ?? [] })
+  res.json({ categories })
 }

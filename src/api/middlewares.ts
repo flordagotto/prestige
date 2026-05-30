@@ -111,7 +111,7 @@ export default defineMiddlewares({
       middlewares: employeeMiddlewares,
     },
     {
-      matcher: "/admin/categories/:id",
+      matcher: "/admin/categories",
       method: "POST",
       middlewares: withBodyValidation(adminMiddlewares, AddProductCategoryBody)
     },

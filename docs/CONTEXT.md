@@ -64,6 +64,7 @@ We use Medusa **ProductCategory** linked to **Company** via module link:
 - Link file: `src/links/product-category-company.ts`
 - Sync to DB: `npx medusa db:migrate`
 - Set categories for a company: `PUT /admin/companies/:id/categories { category_ids: [...] }`
+- Query linked categories via link `entryPoint` (see `src/utils/company-product-categories.ts`), NOT `company.product_categories`
 - Exclusion logic for employee catalog: products whose category is linked to the employee's company are hidden.
 
 Old custom tables `category` and `category_x_company` were removed by migration.
