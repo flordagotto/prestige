@@ -10,13 +10,14 @@ import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { COMPANY_MODULE } from "../modules/company"
 import CompanyModuleService from "../modules/company/service"
 import { UpdateEmployeeBody } from "./agent/employees/[id]/validators"
-import { ZodSchema } from "@medusajs/framework/zod"
 import { UpdateCompanyBody } from "./admin/companies/[id]/validators"
 import { AddProductCategoryBody } from "./admin/categories/validators"
 import { ZodObject, ZodEffects, ZodTypeAny, ZodTypeDef } from "zod"
 import { InviteAgentBody } from "./admin/companies/[id]/agents/validators"
 import { InviteEmployeeBody } from "./agent/employees/validators"
 import { ChangePasswordBody } from "./employee/me/password/validators"
+import { UpdateMyEmployeeProfileBody } from "./employee/me/validators"
+import { UpdateMyAgentProfileBody } from "./agent/me/validators"
 
 type ValidBodySchema =
   | ZodObject<any, any, ZodTypeAny>
@@ -112,7 +113,7 @@ export default defineMiddlewares({
       middlewares: employeeMiddlewares,
     },
     {
-      matcher: "/admin/categories/:id",
+      matcher: "/admin/categories",
       method: "POST",
       middlewares: withBodyValidation(adminMiddlewares, AddProductCategoryBody)
     },
@@ -144,10 +145,18 @@ export default defineMiddlewares({
     {
       matcher: "/employee/me",
       method: "PUT",
-      middlewares: withBodyValidation(employeeMiddlewares, UpdateEmployeeBody)
+      middlewares: withBodyValidation(employeeMiddlewares, UpdateMyEmployeeProfileBody)
+    },
+    {
+      matcher: "/agent/me",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, UpdateMyAgentProfileBody)
+    },
+    {
+      matcher: "/agent/me/password",
+      method: "PUT",
+      middlewares: withBodyValidation(agentMiddlewares, ChangePasswordBody)
     },
   ],
 })
 
-// TODO: La única diferencia con lo que hablábamos es que si un usuario es agent de una empresa y también employee de otra, el middleware actual tomaría el primero que encuentre. Por ahora está bien así.
-// controlar q esto no pueda suceder

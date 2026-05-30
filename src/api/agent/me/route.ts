@@ -1,11 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { AuthenticatedMedusaRequest } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { UpdateMyEmployeeProfileBodyType } from "./validators"
+import { UpdateMyAgentProfileBodyType } from "./validators"
 
-function buildEmployeeProfile(employee: Record<string, unknown>, customer: Record<string, any>) {
+function buildAgentProfile(agent: Record<string, unknown>, customer: Record<string, any>) {
   return {
-    ...employee,
+    ...agent,
     first_name: customer.first_name,
     last_name: customer.last_name,
     email: customer.email,
@@ -20,28 +20,28 @@ export async function GET(
   const authReq = req as AuthenticatedMedusaRequest
   const customerService = req.scope.resolve(Modules.CUSTOMER)
 
-  const employee = (authReq as any).employee
+  const agent = (authReq as any).agent
 
-  const customer = await customerService.retrieveCustomer(employee.customer_id)
+  const customer = await customerService.retrieveCustomer(agent.customer_id)
 
   res.json({
-    employee: buildEmployeeProfile(employee, customer),
+    agent: buildAgentProfile(agent, customer),
   })
 }
 
 export async function PUT(
-  req: MedusaRequest<UpdateMyEmployeeProfileBodyType>,
+  req: MedusaRequest<UpdateMyAgentProfileBodyType>,
   res: MedusaResponse
 ) {
   const authReq = req as AuthenticatedMedusaRequest
   const customerService = req.scope.resolve(Modules.CUSTOMER)
 
-  const employee = (authReq as any).employee
+  const agent = (authReq as any).agent
 
   const { first_name, last_name, phone } = req.validatedBody
 
   const updated = await customerService.updateCustomers(
-    employee.customer_id,
+    agent.customer_id,
     {
       first_name,
       last_name,
@@ -50,6 +50,6 @@ export async function PUT(
   )
 
   res.json({
-    employee: buildEmployeeProfile(employee, updated),
+    agent: buildAgentProfile(agent, updated),
   })
 }
