@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Modules } from "@medusajs/framework/utils"
+import { createInvitesWorkflow } from "@medusajs/medusa/core-flows"
 import CompanyModuleService from "../../../../../modules/company/service"
 import { COMPANY_MODULE } from "../../../../../modules/company"
 import { InviteAgentBodyType } from "./validators"
@@ -9,16 +9,10 @@ export async function POST(
   req: MedusaRequest<InviteAgentBodyType>,
   res: MedusaResponse
 ) {
-  const userService = req.scope.resolve(Modules.USER)
   const companyService: CompanyModuleService = req.scope.resolve(COMPANY_MODULE)
 
-  const {
-    first_name,
-    last_name,
-    email
-  } = req.validatedBody
+  const { first_name, last_name, email } = req.validatedBody
 
-  // verify company exists and is active
   let company
   try {
     company = await companyService.retrieveCompany(req.params.id)
@@ -30,18 +24,24 @@ export async function POST(
     return res.status(400).json({ message: "Cannot invite agent to an inactive company" })
   }
 
-  const expires_at = new Date()
-  expires_at.setHours(expires_at.getHours() + 72) // TODO: ver por que se setea +24hs
-
-  const invite = await userService.createInvites([{
-    email,
-    metadata: {
-      company_id: req.params.id,
-      role: "agent",
-      first_name,
-      last_name,
+  const { result, errors } = await createInvitesWorkflow(req.scope).run({
+    input: {
+      invites: [{
+        email,
+        metadata: {
+          company_id: req.params.id,
+          role: "agent",
+          first_name,
+          last_name,
+        },
+      }],
     },
-  }])
+    throwOnError: false,
+  })
 
-  res.json({ invite })
+  if (errors.length > 0) {
+    return res.status(400).json({ message: errors[0].error.message })
+  }
+
+  res.json({ invite: result[0] })
 }

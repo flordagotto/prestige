@@ -15,6 +15,20 @@ module.exports = defineConfig({
   },
   modules: [
     {
+      resolve: "@medusajs/medusa/notification",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/notification-local",
+            id: "local",
+            options: {
+              channels: ["email"],
+            },
+          },
+        ],
+      },
+    },
+    {
       resolve: "./src/modules/company",
       options: {
         databaseUrl: process.env.DATABASE_URL,
